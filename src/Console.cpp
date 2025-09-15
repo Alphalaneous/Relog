@@ -301,7 +301,7 @@ bool Console::init() {
 
     addChild(m_blockMenu);
 
-    m_scrollLayer = geode::ScrollLayer::create({0, 0, mainSize.width - 2, mainSize.height - 9 * scaleMultiplier});
+    m_scrollLayer = BoundedScrollLayer::create({mainSize.width - 2, mainSize.height - 9 * scaleMultiplier});
 
     m_scrollLayer->m_contentLayer->setLayout(
         SimpleColumnLayout::create()

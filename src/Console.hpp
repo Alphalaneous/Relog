@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
+#include "BoundedScrollLayer.hpp"
 
 using namespace geode::prelude;
 
@@ -66,7 +67,6 @@ public:
 class Console : public CCLayerColor {
 protected:
     static Console* s_instance;
-    geode::ScrollLayer* m_scrollLayer;
     geode::Scrollbar* m_scrollbar;
     CCMenu* m_blockMenu;
     CCMenuItemSpriteExtra* m_blockMenuItem;
@@ -92,4 +92,5 @@ public:
     void refresh();
 
     bool m_added = false;
+    BoundedScrollLayer* m_scrollLayer;
 };

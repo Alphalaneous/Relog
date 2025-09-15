@@ -8,7 +8,7 @@
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.0.0",
+	"version": "v1.0.1",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
 	"resources": {
@@ -23,7 +23,7 @@
 		]
     },
 	"dependencies": {
-		"alphalaneous.to_the_top": ">=1.0.2"
+		"alphalaneous.to_the_top": ">=1.0.4"
 	},
 	"early-load": true,
 	"tags": ["developer", "utility", "offline", "enhancement"],
