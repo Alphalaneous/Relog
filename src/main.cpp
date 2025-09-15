@@ -1,5 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
+#include <Geode/modify/VideoOptionsLayer.hpp>
+#include <Geode/modify/CCScene.hpp>
 #include "Console.hpp"
 
 using namespace geode::prelude;
@@ -16,6 +18,7 @@ Severity fromString(std::string severity) {
     if (severity == "error") return Severity::Error;
     return Severity::Info;
 }
+
 
 void vlogImpl_H(Severity severity, Mod* mod, fmt::string_view format, fmt::format_args args) {
 	log::vlogImpl(severity, mod, format, args);
@@ -36,9 +39,7 @@ void vlogImpl_H(Severity severity, Mod* mod, fmt::string_view format, fmt::forma
     };
 
     queueInMainThread([log] {
-        if (auto console = Console::get()) {
-            console->pushLog(log);
-        }
+        LogStore::get()->pushLog(log);
     });
 }
 
@@ -49,17 +50,61 @@ $on_mod(Loaded) {
         "log::vlogImpl"
     );
     queueInMainThread([] {
-        SceneManager::get()->keepAcrossScenes(Console::create());
+        auto console = Console::create();
+        console->retain();
+    });
+
+    listenForSettingChanges("ui-scale", [](float value) {
+        if (auto console = Console::get()) {
+            console->destroyConsole();
+            console = Console::create();
+            console->retain();
+            LogStore::get()->repopulateConsole();
+            console->m_added = true;
+            SceneManager::get()->keepAcrossScenes(console);
+        }
     });
 }
 
 class $modify(MenuLayer) {
-
     bool init() {
         if (!MenuLayer::init()) return false;
 
+        auto console = Console::get();
+        if (!console) {
+            console = Console::create();
+            console->retain();
+            LogStore::get()->repopulateConsole();
+        }
+
+        if (!console->m_added) {
+            console->m_added = true;
+            SceneManager::get()->keepAcrossScenes(console);
+        }
 
         return true;
     }
+};
 
+class $modify(VideoOptionsLayer) {
+    void onApply(cocos2d::CCObject* sender) {
+        if (auto console = Console::get()) {
+            console->destroyConsole();
+        }
+        VideoOptionsLayer::onApply(sender);
+    }
+};
+
+class $modify(CCScene) {
+    int getHighestChildZ() {
+        if (auto console = Console::get()) {
+            auto original = console->getZOrder();
+            console->setZOrder(-1);
+
+            auto highest = CCScene::getHighestChildZ();
+            console->setZOrder(original);
+            return highest;
+        }
+        return CCScene::getHighestChildZ();
+    }
 };

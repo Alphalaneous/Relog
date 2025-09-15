@@ -3,6 +3,7 @@
 #include <Geode/Geode.hpp>
 
 using namespace geode::prelude;
+
 struct Log {
     Mod* mod;
     Severity severity = Severity::Info;
@@ -21,21 +22,21 @@ public:
     static LogCell* create(Log log, CCSize size);
     bool init(Log log, CCSize size);
     void resize(CCSize size);
+    void refresh();
 };
-
 
 class DragBar : public CCLayerColor {
 protected:
     CCNode* m_nodeToMove;
     CCSprite* m_resizeSprite;
     CCSprite* m_minimizeSprite;
+    CCLabelBMFont* m_logsLabel;
     cocos2d::CCPoint m_lastTouchPos;
     bool m_dragging = false;
     bool m_resizing = false;
     bool m_minimized = false;
     CCSize m_queuedSize = {300, 150};
     CCSize m_expectedContentSize = {300, 150};
-
 public:
     static DragBar* create();
     bool init() override;
@@ -44,10 +45,22 @@ public:
     void setMinimized(bool minimized);
     void setNodeToMove(CCNode* node);
     void registerWithTouchDispatcher() override;
+    void refresh();
     bool ccTouchBegan(CCTouch *pTouch, CCEvent *pEvent) override;
     void ccTouchMoved(CCTouch *pTouch, CCEvent *pEvent) override;
     void ccTouchEnded(CCTouch *pTouch, CCEvent *pEvent) override;
     void ccTouchCancelled(CCTouch *pTouch, CCEvent *pEvent) override;
+};
+
+class LogStore {
+protected:
+    static LogStore* s_instance;
+    std::vector<Log> m_logs;
+public:
+    static LogStore* get();
+    std::vector<Log> getLogs();
+    void pushLog(Log log);
+    void repopulateConsole();
 };
 
 class Console : public CCLayerColor {
@@ -71,8 +84,12 @@ public:
     void setContentSize(const CCSize& size) override;
     void setPosition(const CCPoint& point) override;
     void setMinimized(bool minimized);
+    void destroyConsole();
 
     CCNode* createCell(Log log);
-    void pushLog(Log log);
+    void pushLog(Log log, bool updateLayout = true);
+    void updateScrollLayout();
+    void refresh();
 
+    bool m_added = false;
 };

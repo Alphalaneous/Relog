@@ -1,5 +1,5 @@
 {
-	"geode": "4.6.1",
+	"geode": "4.8.0",
 	"gd": {
 		"win": "2.2074",
 		"android": "2.2074",
@@ -22,11 +22,45 @@
 			"resources/*.png"
 		]
     },
+	"dependencies": {
+		"alphalaneous.to_the_top": ">=1.0.2"
+	},
 	"early-load": true,
 	"tags": ["developer", "utility", "offline", "enhancement"],
 	    "links": {
         "homepage": "https://linktr.ee/Alphalaneous",
         "source": "https://github.com/Alphalaneous/Relog",
         "community": "https://discord.gg/Txn2CA5dHF"
-    }
+    },
+	"settings": {
+		"ui-scale": {
+			"name": "UI Scale",
+            "description": "How big the UI should be on the Console. APPLYING WILL LAG",
+            "type": "float",
+    		"min": 0.85,
+			"max": 3,
+            "default":  {
+				"win": 1.0,
+				"mac": 1.0,
+				"android": 1.5,
+				"ios": 1.5
+			},
+			"controls": {
+				"arrows": true,
+				"arrow-step": 0.05,
+				"big-arrows": false,
+				"slider": true,
+				"slider-step": 0.05,
+				"input": true
+			}
+		},
+		"log-limit": {
+			"name": "Log Limit",
+			"description": "The maximum amount of logs that can be shown, ones past this limit will be removed.",
+			"type": "int",
+			"min": 100,
+			"max": 5000,
+			"default": 500
+		}
+	}
 }

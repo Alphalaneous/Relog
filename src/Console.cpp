@@ -1,5 +1,34 @@
 #include "Console.hpp"
 
+LogStore* LogStore::s_instance = nullptr;
+
+std::vector<Log> LogStore::getLogs() {
+    return m_logs;
+}
+
+void LogStore::pushLog(Log log) {
+    m_logs.push_back(log);
+    if (auto console = Console::get()) {
+        console->pushLog(log);
+    }
+}
+
+void LogStore::repopulateConsole() {
+    if (Console* console = Console::get()) {
+        for (const auto& log : getLogs()) {
+            console->pushLog(log, false);
+        }
+        //console->updateScrollLayout();
+    }
+}
+
+LogStore* LogStore::get() {
+    if (!s_instance) {
+        s_instance = new LogStore();
+    }
+    return s_instance;
+}
+
 DragBar* DragBar::create() {
     auto dragBar = new DragBar();
     if (dragBar->init()) {
@@ -17,28 +46,32 @@ bool DragBar::init() {
     setTouchEnabled(true);
     scheduleUpdate();
 
-    CCLabelBMFont* logsLabel = CCLabelBMFont::create("Logs", "Consolas.fnt"_spr);
-    logsLabel->setAnchorPoint({0, 0.5f});
-    logsLabel->setScale(0.3f);
-    logsLabel->setPosition({11, 4.5});
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
+    m_logsLabel = CCLabelBMFont::create("Logs", "Consolas.fnt"_spr);
+    m_logsLabel->setAnchorPoint({0, 0.5f});
+    m_logsLabel->setScale(0.3f * scaleMultiplier);
+    m_logsLabel->setPosition({11 * scaleMultiplier, 4.5f * scaleMultiplier});
 
     m_resizeSprite = CCSprite::create("resize.png"_spr);
     m_resizeSprite->setAnchorPoint({1, 1});
     m_resizeSprite->setPosition(getContentSize());
     m_resizeSprite->setOpacity(64);
+    m_resizeSprite->setScale(scaleMultiplier);
 
     addChild(m_resizeSprite);
 
     m_minimizeSprite = CCSprite::create("minimize.png"_spr);
     m_minimizeSprite->setAnchorPoint({0, 0.5f});
-    m_minimizeSprite->setPosition({1, 4});
+    m_minimizeSprite->setPosition({1, 4 * scaleMultiplier});
     m_minimizeSprite->setOpacity(64);
+    m_minimizeSprite->setScale(scaleMultiplier);
 
     addChild(m_minimizeSprite);
 
     schedule(schedule_selector(DragBar::resizeSchedule), 0.0083);
 
-    addChild(logsLabel);
+    addChild(m_logsLabel);
 
     if (Mod::get()->getSavedValue<bool>("isMinimized", false)) {
         m_minimized = true;
@@ -47,6 +80,17 @@ bool DragBar::init() {
     }
 
     return true;
+}
+
+void DragBar::refresh() {
+    m_logsLabel->setFntFile("Consolas.fnt"_spr);
+    m_resizeSprite->setDisplayFrame(CCSprite::create("resize.png"_spr)->displayFrame());
+    if (m_minimized) {
+        m_minimizeSprite->setDisplayFrame(CCSprite::create("unminimize.png"_spr)->displayFrame());
+    }
+    else {
+        m_minimizeSprite->setDisplayFrame(CCSprite::create("minimize.png"_spr)->displayFrame());
+    }
 }
 
 class ScrollbarProMax : public geode::Scrollbar {
@@ -91,16 +135,18 @@ void DragBar::setContentSize(const CCSize& size) {
 }
 
 bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
     CCPoint locationInView = touch->getLocation();
     CCPoint locationInNode = this->convertToNodeSpace(locationInView);
     m_expectedContentSize = m_nodeToMove->getContentSize();
     m_queuedSize = m_nodeToMove->getContentSize();
 
-    float width = this->getContentSize().width - 20;
+    float width = this->getContentSize().width - 20 * scaleMultiplier;
 
-    if (m_minimized) width += 10;
+    if (m_minimized) width += 10 * scaleMultiplier;
 
-    CCRect bounds = CCRect(10, 0, width, this->getContentSize().height);
+    CCRect bounds = CCRect(10 * scaleMultiplier, 0, width, this->getContentSize().height);
     if (bounds.containsPoint(locationInNode)) {
         m_lastTouchPos = locationInView;
         m_dragging = true;
@@ -108,7 +154,7 @@ bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
     }
 
     if (!m_minimized) {
-        CCRect resizeBounds = CCRect(this->getContentSize().width - 10, 0, 10, this->getContentSize().height);
+        CCRect resizeBounds = CCRect(this->getContentSize().width - 10 * scaleMultiplier, 0, 10 * scaleMultiplier, this->getContentSize().height);
         if (resizeBounds.containsPoint(locationInNode)) {
             m_lastTouchPos = locationInView;
             m_resizing = true;
@@ -117,7 +163,7 @@ bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
         }
     }
 
-    CCRect minimizeBounds = CCRect(0, 0, 10, this->getContentSize().height);
+    CCRect minimizeBounds = CCRect(0, 0, 10 * scaleMultiplier, this->getContentSize().height);
     if (minimizeBounds.containsPoint(locationInNode)) {
         m_minimizeSprite->setOpacity(127);
         setMinimized(!m_minimized);
@@ -227,6 +273,8 @@ bool Console::init() {
     m_blockMenu->ignoreAnchorPointForPosition(false);
     m_blockMenuItem = CCMenuItemSpriteExtra::create(CCNode::create(), this, nullptr);
     m_blockMenuItem->m_fSizeMult = 1;
+    setID("console"_spr);
+    setZOrder(5000);
 
     float posX = Mod::get()->getSavedValue<float>("posX", 20);
     float posY = Mod::get()->getSavedValue<float>("posY", 20);
@@ -237,6 +285,7 @@ bool Console::init() {
     float mainSizeHeight = Mod::get()->getSavedValue<float>("sizeHeight", 150);
 
     CCSize mainSize = {mainSizeWidth, mainSizeHeight};
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
 
     setContentSize(mainSize);
     setAnchorPoint({0, 0});
@@ -252,7 +301,7 @@ bool Console::init() {
 
     addChild(m_blockMenu);
 
-    m_scrollLayer = geode::ScrollLayer::create({0, 0, mainSize.width - 2, mainSize.height - 9});
+    m_scrollLayer = geode::ScrollLayer::create({0, 0, mainSize.width - 2, mainSize.height - 9 * scaleMultiplier});
 
     m_scrollLayer->m_contentLayer->setLayout(
         SimpleColumnLayout::create()
@@ -266,7 +315,7 @@ bool Console::init() {
     ScrollbarProMax* scrollbar = static_cast<ScrollbarProMax*>(geode::Scrollbar::create(m_scrollLayer));
     scrollbar->setTouchEnabled(false);
     scrollbar->setAnchorPoint({1, 0});
-    scrollbar->setContentSize({4, mainSize.height - 10});
+    scrollbar->setContentSize({4, mainSize.height - 10 * scaleMultiplier});
     scrollbar->setScaleX(0.75f);
     scrollbar->setPosition({getContentWidth(), 0});
     scrollbar->getTrack()->setOpacity(0);
@@ -281,7 +330,7 @@ bool Console::init() {
     m_dragBar->setNodeToMove(this);
     m_dragBar->setAnchorPoint({0, 1});
     m_dragBar->setPosition({0, getContentHeight()});
-    m_dragBar->setContentSize({getContentWidth(), 8});
+    m_dragBar->setContentSize({getContentWidth(), 8 * scaleMultiplier});
     m_dragBar->ignoreAnchorPointForPosition(false);
     m_dragBar->setZOrder(1);
 
@@ -294,10 +343,21 @@ bool Console::init() {
         m_scrollbar->setVisible(false);
         m_scrollLayer->setVisible(false);
         m_blockMenu->setVisible(false);
-        setContentSize({24, 8.5});
+        setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
     }
 
+    queueInMainThread([] {
+        LogStore::get()->repopulateConsole();
+    });
+
     return true;
+}
+
+void Console::destroyConsole() {
+    removeFromParent();
+    SceneManager::get()->forget(this);
+    release();
+    s_instance = nullptr;
 }
 
 void Console::setMinimized(bool minimized) {
@@ -305,10 +365,11 @@ void Console::setMinimized(bool minimized) {
     m_scrollbar->setVisible(!minimized);
     m_scrollLayer->setVisible(!minimized);
     m_blockMenu->setVisible(!minimized);
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
 
     if (minimized) {
-        setPosition({getPositionX(), getPositionY() + getContentSize().height - 8.5f});
-        setContentSize({24, 8.5});
+        setPosition({getPositionX(), getPositionY() + getContentSize().height - 8.5f * scaleMultiplier});
+        setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
     }
     else {
         float mainSizeWidth = Mod::get()->getSavedValue<float>("sizeWidth", 300);
@@ -316,7 +377,7 @@ void Console::setMinimized(bool minimized) {
 
         CCSize mainSize = {mainSizeWidth, mainSizeHeight};
         setContentSize(mainSize);
-        setPosition({getPositionX(), getPositionY() - getContentSize().height + 8.5f});
+        setPosition({getPositionX(), getPositionY() - getContentSize().height + 8.5f * scaleMultiplier});
 
         CCNode* parent = getParent();
         CCPoint pos = getPosition();
@@ -341,14 +402,14 @@ int calculateOffset(Log log) {
     return 22 + log.threadName.size() + log.mod->getName().size();
 }
 
-void Console::pushLog(Log log) {
-    if (m_scrollLayer->m_contentLayer->getChildrenCount() > 500) {
+void Console::pushLog(Log log, bool updateLayout) {
+    if (m_scrollLayer->m_contentLayer->getChildrenCount() > Mod::get()->getSettingValue<int>("log-limit")) {
         static_cast<CCNode*>(m_scrollLayer->m_contentLayer->getChildren()->objectAtIndex(0))->removeFromParent();
     }
 
     std::vector<std::string> lines = geode::utils::string::split(log.message, "\n");
     std::vector<Log> logs;
-    bool firstLine = true;;
+    bool firstLine = true;
     if (lines.size() > 1) {
         for (const std::string& line : lines) {
             logs.push_back({log.mod, log.severity, line, log.threadName, log.time, !firstLine, calculateOffset(log)});
@@ -368,6 +429,20 @@ void Console::pushLog(Log log) {
             m_scrollLayer->m_contentLayer->addChild(createCell(log));
         }
     }
+    if (updateLayout) {
+        m_scrollLayer->m_contentLayer->updateLayout();
+        m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
+    }
+}
+
+void Console::refresh() {
+    m_dragBar->refresh();
+    for (auto log : CCArrayExt<LogCell*>(m_scrollLayer->m_contentLayer->m_pChildren)) {
+        log->refresh();
+    }
+}
+
+void Console::updateScrollLayout() {
     m_scrollLayer->m_contentLayer->updateLayout();
     m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
 }
@@ -380,9 +455,11 @@ CCNode* Console::createCell(Log log) {
 
 void Console::setContentSize(const CCSize& size) {
     CCLayerColor::setContentSize(size);
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
     if (m_scrollLayer) {
-        m_scrollLayer->setContentSize({size.width - 2, size.height - 9});
-        m_scrollLayer->m_contentLayer->setContentSize({size.width - 2, size.height - 9});
+        m_scrollLayer->setContentSize({size.width - 2, size.height - 9 * scaleMultiplier});
+        m_scrollLayer->m_contentLayer->setContentSize({size.width - 2, size.height - 9 * scaleMultiplier});
         for (LogCell* node : CCArrayExt<LogCell*>(m_scrollLayer->m_contentLayer->getChildren())) {
             node->resize(size);
         }
@@ -391,11 +468,11 @@ void Console::setContentSize(const CCSize& size) {
     }
     if (m_dragBar) {
         m_dragBar->setPosition({0, size.height});
-        m_dragBar->setContentSize({size.width, 8});
+        m_dragBar->setContentSize({size.width, 8 * scaleMultiplier});
     }
     if (m_scrollbar) {
         m_scrollbar->setPosition({size.width, 0});
-        m_scrollbar->setContentSize({4, size.height - 10});
+        m_scrollbar->setContentSize({4, size.height - 10 * scaleMultiplier});
     }
     if (m_blockMenu && m_blockMenuItem) {
         m_blockMenu->setContentSize(size);
@@ -427,8 +504,10 @@ bool LogCell::init(Log log, CCSize size) {
     if (!CCNode::init()) return false;
     m_log = log;
 
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
     setAnchorPoint({0.f, 1.f});
-    setContentSize({size.width-2, 8});
+    setContentSize({size.width-2, 8 * scaleMultiplier});
 
     RowLayout* layout = RowLayout::create();
     layout->setAxisAlignment(AxisAlignment::Start);
@@ -487,7 +566,7 @@ bool LogCell::init(Log log, CCSize size) {
 
         CCLabelBMFont* timeAndSeverityLabel = CCLabelBMFont::create(res.c_str(), "Consolas.fnt"_spr);
         timeAndSeverityLabel->setColor(color);
-        timeAndSeverityLabel->setScale(0.3f);
+        timeAndSeverityLabel->setScale(0.3f * scaleMultiplier);
         addChild(timeAndSeverityLabel);
 
         std::string threadAndMod;
@@ -499,14 +578,14 @@ bool LogCell::init(Log log, CCSize size) {
 
         CCLabelBMFont* threadAndModLabel = CCLabelBMFont::create(threadAndMod.c_str(), "Consolas.fnt"_spr);
         threadAndModLabel->setColor(color2);
-        threadAndModLabel->setScale(0.3f);
+        threadAndModLabel->setScale(0.3f * scaleMultiplier);
         addChild(threadAndModLabel);
     }
     else {
         res = std::string(log.offset, ' ');
         CCLabelBMFont* emptyLabel = CCLabelBMFont::create(res.c_str(), "Consolas.fnt"_spr);
         emptyLabel->setColor(color);
-        emptyLabel->setScale(0.3f);
+        emptyLabel->setScale(0.3f * scaleMultiplier);
         addChild(emptyLabel);
     }
 
@@ -515,23 +594,32 @@ bool LogCell::init(Log log, CCSize size) {
 
     for (const std::string& string : spaceSplit) {
         CCLabelBMFont* label = CCLabelBMFont::create(string.c_str(), "Consolas.fnt"_spr);
-        label->setScale(0.3f);
+        label->setScale(0.3f * scaleMultiplier);
         label->setColor(color2);
        
         lastSpace = CCLabelBMFont::create(" ", "Consolas.fnt"_spr);
-        lastSpace->setScale(0.3f);
+        lastSpace->setScale(0.3f * scaleMultiplier);
         addChild(label);
         addChild(lastSpace);
     }
-    lastSpace->removeFromParent();
+    if (lastSpace) lastSpace->removeFromParent();
     updateLayout();
     setContentHeight(getContentHeight() - 2);
 
     return true;
 }
 
+void LogCell::refresh() {
+    for (auto child : CCArrayExt<CCLabelBMFont*>(getChildren())) {
+        child->setFntFile("Consolas.fnt"_spr);
+    }
+    updateLayout();
+}
+
 void LogCell::resize(CCSize size) {
-    setContentSize({size.width-2, 8});
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
+    setContentSize({size.width-2, 8 * scaleMultiplier});
     updateLayout();
     setContentHeight(getContentHeight() - 2);
 }
