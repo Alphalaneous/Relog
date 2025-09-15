@@ -274,6 +274,7 @@ bool Console::init() {
     m_blockMenuItem = CCMenuItemSpriteExtra::create(CCNode::create(), this, nullptr);
     m_blockMenuItem->m_fSizeMult = 1;
     setID("console"_spr);
+    setUserObject("alphalaneous.to_the_top/fix-touch", CCBool::create(true));
     setZOrder(5000);
 
     float posX = Mod::get()->getSavedValue<float>("posX", 20);
@@ -313,10 +314,10 @@ bool Console::init() {
     m_scrollLayer->setPosition({1, 1});
 
     ScrollbarProMax* scrollbar = static_cast<ScrollbarProMax*>(geode::Scrollbar::create(m_scrollLayer));
-    scrollbar->setTouchEnabled(false);
+    //scrollbar->setTouchEnabled(false);
     scrollbar->setAnchorPoint({1, 0});
-    scrollbar->setContentSize({4, mainSize.height - 10 * scaleMultiplier});
-    scrollbar->setScaleX(0.75f);
+    scrollbar->setContentSize({4 * scaleMultiplier, mainSize.height - 10 * scaleMultiplier});
+    scrollbar->setScaleX(0.75f * scaleMultiplier);
     scrollbar->setPosition({getContentWidth(), 0});
     scrollbar->getTrack()->setOpacity(0);
     scrollbar->getThumb()->setOpacity(127);
@@ -336,8 +337,6 @@ bool Console::init() {
 
     addChild(m_dragBar);
 
-    handleTouchPriority(this);
-
     if (Mod::get()->getSavedValue<bool>("isMinimized", false)) {
         m_minimized = true;
         m_scrollbar->setVisible(false);
@@ -346,12 +345,32 @@ bool Console::init() {
         setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
     }
 
+    handleTouchPriority(this);
+
     queueInMainThread([] {
         LogStore::get()->repopulateConsole();
     });
 
     return true;
 }
+
+void Console::onEnter() {
+    CCLayerColor::onEnter();
+    int scrollLayerPrio = 0;
+
+    if (auto delegate = typeinfo_cast<CCTouchDelegate*>(m_scrollLayer)) {
+        if (auto handler = CCTouchDispatcher::get()->findHandler(delegate)) {
+            scrollLayerPrio = handler->getPriority();
+        }
+    }
+
+    if (auto delegate = typeinfo_cast<CCTouchDelegate*>(m_scrollbar)) {
+        if (auto handler = CCTouchDispatcher::get()->findHandler(delegate)) {
+            CCTouchDispatcher::get()->setPriority(scrollLayerPrio - 1, handler->getDelegate());
+        }
+    }
+}
+
 
 void Console::destroyConsole() {
     removeFromParent();

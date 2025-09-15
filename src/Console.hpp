@@ -91,6 +91,8 @@ public:
     void updateScrollLayout();
     void refresh();
 
+    void onEnter() override;
+
     bool m_added = false;
     BoundedScrollLayer* m_scrollLayer;
 };
