@@ -86,6 +86,7 @@ class $modify(MenuLayer) {
     }
 };
 
+#ifdef GEODE_IS_DESKTOP
 class $modify(VideoOptionsLayer) {
     void onApply(cocos2d::CCObject* sender) {
         if (auto console = Console::get()) {
@@ -94,6 +95,7 @@ class $modify(VideoOptionsLayer) {
         VideoOptionsLayer::onApply(sender);
     }
 };
+#endif
 
 class $modify(CCScene) {
     int getHighestChildZ() {
