@@ -20,8 +20,8 @@ protected:
     Log m_log;
 
 public:
-    static LogCell* create(Log log, CCSize size);
-    bool init(Log log, CCSize size);
+    static LogCell* create(Log&& log, CCSize size);
+    bool init(Log&& log, CCSize size);
     void resize(CCSize size);
     void refresh();
 };
@@ -60,7 +60,7 @@ protected:
 public:
     static LogStore* get();
     std::vector<Log> getLogs();
-    void pushLog(Log log);
+    void pushLog(Log&& log);
     void repopulateConsole();
 };
 
@@ -86,8 +86,8 @@ public:
     void setMinimized(bool minimized);
     void destroyConsole();
 
-    CCNode* createCell(Log log);
-    void pushLog(Log log, bool updateLayout = true);
+    CCNode* createCell(Log&& log);
+    void pushLog(const Log& log, bool updateLayout = true);
     void updateScrollLayout();
     void refresh();
 

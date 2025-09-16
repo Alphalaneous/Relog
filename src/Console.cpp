@@ -6,16 +6,17 @@ std::vector<Log> LogStore::getLogs() {
     return m_logs;
 }
 
-void LogStore::pushLog(Log log) {
-    m_logs.push_back(log);
+void LogStore::pushLog(Log&& log) {
     if (auto console = Console::get()) {
         console->pushLog(log);
     }
+
+    m_logs.push_back(std::move(log));
 }
 
 void LogStore::repopulateConsole() {
     if (Console* console = Console::get()) {
-        for (const auto& log : getLogs()) {
+        for (const auto& log : m_logs) {
             console->pushLog(log, false);
         }
         //console->updateScrollLayout();
@@ -175,7 +176,7 @@ bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
 
 void DragBar::ccTouchMoved(CCTouch* touch, CCEvent* event) {
     if (!m_nodeToMove) return;
-    
+
     CCPoint currentPos = touch->getLocation();
     CCPoint delta = currentPos - m_lastTouchPos;
     m_lastTouchPos = currentPos;
@@ -417,13 +418,16 @@ void Console::setMinimized(bool minimized) {
     }
 }
 
-int calculateOffset(Log log) {
+int calculateOffset(const Log& log) {
     return 22 + log.threadName.size() + log.mod->getName().size();
 }
 
-void Console::pushLog(Log log, bool updateLayout) {
-    if (m_scrollLayer->m_contentLayer->getChildrenCount() > Mod::get()->getSettingValue<int>("log-limit")) {
-        static_cast<CCNode*>(m_scrollLayer->m_contentLayer->getChildren()->objectAtIndex(0))->removeFromParent();
+void Console::pushLog(const Log& log, bool updateLayout) {
+    auto contentLayer = m_scrollLayer->m_contentLayer;
+    size_t children = contentLayer->getChildrenCount();
+
+    if (children > Mod::get()->getSettingValue<int>("log-limit")) {
+        contentLayer->getChildrenExt()[0]->removeFromParent();
     }
 
     std::vector<std::string> lines = geode::utils::string::split(log.message, "\n");
@@ -439,18 +443,18 @@ void Console::pushLog(Log log, bool updateLayout) {
         logs.push_back(log);
     }
 
-    for (const auto& log : logs) {
-        if (m_scrollLayer->m_contentLayer->getChildrenCount() > 1) {
-            CCNode* next = static_cast<CCNode*>(m_scrollLayer->m_contentLayer->getChildren()->objectAtIndex(m_scrollLayer->m_contentLayer->getChildrenCount() - 1));
-            m_scrollLayer->m_contentLayer->insertAfter(createCell(log), next);
+    for (auto& log : logs) {
+        if (children > 1) {
+            CCNode* next = contentLayer->getChildrenExt()[children - 1];
+            contentLayer->insertAfter(createCell(std::move(log)), next);
         }
         else {
-            m_scrollLayer->m_contentLayer->addChild(createCell(log));
+            contentLayer->addChild(createCell(std::move(log)));
         }
     }
     if (updateLayout) {
-        m_scrollLayer->m_contentLayer->updateLayout();
-        m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
+        contentLayer->updateLayout();
+        contentLayer->setPosition(contentLayer->getPosition());
     }
 }
 
@@ -466,8 +470,8 @@ void Console::updateScrollLayout() {
     m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
 }
 
-CCNode* Console::createCell(Log log) {
-    LogCell* logCell = LogCell::create(log, getContentSize());
+CCNode* Console::createCell(Log&& log) {
+    LogCell* logCell = LogCell::create(std::move(log), getContentSize());
 
     return logCell;
 }
@@ -509,9 +513,9 @@ void Console::setPosition(const CCPoint& point) {
     Mod::get()->setSavedValue("posY", getPositionY());
 }
 
-LogCell* LogCell::create(Log log, CCSize size) {
+LogCell* LogCell::create(Log&& log, CCSize size) {
     auto logCell = new LogCell();
-    if (logCell->init(log, size)) {
+    if (logCell->init(std::move(log), size)) {
         logCell->autorelease();
         return logCell;
     }
@@ -519,9 +523,9 @@ LogCell* LogCell::create(Log log, CCSize size) {
     return nullptr;
 }
 
-bool LogCell::init(Log log, CCSize size) {
+bool LogCell::init(Log&& log, CCSize size) {
     if (!CCNode::init()) return false;
-    m_log = log;
+    m_log = std::move(log);
 
     auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
 
@@ -539,7 +543,7 @@ bool LogCell::init(Log log, CCSize size) {
     ccColor3B color = {255, 255, 255};
     ccColor3B color2 = {255, 255, 255};
 
-    switch (log.severity.m_value) {
+    switch (m_log.severity.m_value) {
         case Severity::Debug:
             color = {118, 118, 118};
             color2 = {188, 188, 188};
@@ -562,10 +566,10 @@ bool LogCell::init(Log log, CCSize size) {
 
     std::string res;
 
-    if (!log.newLine) {
-        res = fmt::format("{:%H:%M:%S}", log.time);
+    if (!m_log.newLine) {
+        res = fmt::format("{:%H:%M:%S}", m_log.time);
 
-        switch (log.severity.m_value) {
+        switch (m_log.severity.m_value) {
             case Severity::Debug:
                 res += " DEBUG";
                 break;
@@ -590,10 +594,10 @@ bool LogCell::init(Log log, CCSize size) {
 
         std::string threadAndMod;
 
-        if (log.threadName.empty())
-            threadAndMod += fmt::format(" [{}]: ", log.mod->getName());
+        if (m_log.threadName.empty())
+            threadAndMod += fmt::format(" [{}]: ", m_log.mod->getName());
         else
-            threadAndMod += fmt::format(" [{}] [{}]: ", log.threadName, log.mod->getName());
+            threadAndMod += fmt::format(" [{}] [{}]: ", m_log.threadName, m_log.mod->getName());
 
         CCLabelBMFont* threadAndModLabel = CCLabelBMFont::create(threadAndMod.c_str(), "Consolas.fnt"_spr);
         threadAndModLabel->setColor(color2);
@@ -601,21 +605,21 @@ bool LogCell::init(Log log, CCSize size) {
         addChild(threadAndModLabel);
     }
     else {
-        res = std::string(log.offset, ' ');
+        res = std::string(m_log.offset, ' ');
         CCLabelBMFont* emptyLabel = CCLabelBMFont::create(res.c_str(), "Consolas.fnt"_spr);
         emptyLabel->setColor(color);
         emptyLabel->setScale(0.3f * scaleMultiplier);
         addChild(emptyLabel);
     }
 
-    std::vector<std::string> spaceSplit = geode::utils::string::split(log.message, " ");
-    CCLabelBMFont* lastSpace;
+    std::vector<std::string> spaceSplit = geode::utils::string::split(m_log.message, " ");
+    CCLabelBMFont* lastSpace = nullptr;
 
     for (const std::string& string : spaceSplit) {
         CCLabelBMFont* label = CCLabelBMFont::create(string.c_str(), "Consolas.fnt"_spr);
         label->setScale(0.3f * scaleMultiplier);
         label->setColor(color2);
-       
+
         lastSpace = CCLabelBMFont::create(" ", "Consolas.fnt"_spr);
         lastSpace->setScale(0.3f * scaleMultiplier);
         addChild(label);

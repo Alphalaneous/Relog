@@ -11,7 +11,7 @@ auto convertTime(auto timePoint) {
     return fmt::localtime(timeEpoch);
 }
 
-Severity fromString(std::string severity) {
+Severity fromString(std::string_view severity) {
     if (severity == "debug") return Severity::Debug;
     if (severity == "info") return Severity::Info;
     if (severity == "warning") return Severity::Warning;
@@ -19,16 +19,23 @@ Severity fromString(std::string severity) {
     return Severity::Info;
 }
 
+static Severity getConsoleLogLevel() {
+    static Mod* geodeMod = Loader::get()->getLoadedMod("geode.loader");
+    static Severity level = fromString(geodeMod->getSettingValue<std::string>("console-log-level"));
+
+    listenForSettingChangesV3("console-log-level", [](std::string value) {
+        level = fromString(value);
+    }, geodeMod);
+
+    return level;
+}
 
 void vlogImpl_H(Severity severity, Mod* mod, fmt::string_view format, fmt::format_args args) {
 	log::vlogImpl(severity, mod, format, args);
 
     if (!mod->isLoggingEnabled()) return;
     if (severity < mod->getLogLevel()) return;
-
-    Mod* geodeMod = Loader::get()->getLoadedMod("geode.loader");
-    std::string level = geodeMod->getSettingValue<std::string>("console-log-level");
-    if (severity < fromString(level)) return;
+    if (severity < getConsoleLogLevel()) return;
 
     Log log {
         mod,
@@ -38,8 +45,8 @@ void vlogImpl_H(Severity severity, Mod* mod, fmt::string_view format, fmt::forma
         convertTime(std::chrono::system_clock::now())
     };
 
-    queueInMainThread([log] {
-        LogStore::get()->pushLog(log);
+    queueInMainThread([log = std::move(log)]() mutable {
+        LogStore::get()->pushLog(std::move(log));
     });
 }
 
