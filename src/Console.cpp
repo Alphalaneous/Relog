@@ -175,7 +175,7 @@ bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
 
 void DragBar::ccTouchMoved(CCTouch* touch, CCEvent* event) {
     if (!m_nodeToMove) return;
-    
+
     CCPoint currentPos = touch->getLocation();
     CCPoint delta = currentPos - m_lastTouchPos;
     m_lastTouchPos = currentPos;
@@ -609,13 +609,13 @@ bool LogCell::init(Log log, CCSize size) {
     }
 
     std::vector<std::string> spaceSplit = geode::utils::string::split(log.message, " ");
-    CCLabelBMFont* lastSpace;
+    CCLabelBMFont* lastSpace = nullptr;
 
     for (const std::string& string : spaceSplit) {
         CCLabelBMFont* label = CCLabelBMFont::create(string.c_str(), "Consolas.fnt"_spr);
         label->setScale(0.3f * scaleMultiplier);
         label->setColor(color2);
-       
+
         lastSpace = CCLabelBMFont::create(" ", "Consolas.fnt"_spr);
         lastSpace->setScale(0.3f * scaleMultiplier);
         addChild(label);
