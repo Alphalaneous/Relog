@@ -8,38 +8,45 @@
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.0.2",
+	"version": "v1.0.3",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
 	"resources": {
-        "fonts": {
-            "Consolas": {
-                "path": "resources/Consolas.ttf",
-                "size": 55
-            }
-        },
+		"fonts": {
+			"Consolas": {
+				"path": "resources/Consolas.ttf",
+				"size": 55
+			}
+		},
 		"sprites": [
 			"resources/*.png"
 		]
-    },
+	},
 	"dependencies": {
-		"alphalaneous.to_the_top": ">=1.0.5"
+		"alphalaneous.to_the_top": ">=1.0.5",
+		"geode.custom-keybinds": ">=1.10.4"
 	},
 	"early-load": true,
 	"tags": ["developer", "utility", "offline", "enhancement"],
-	    "links": {
-        "homepage": "https://linktr.ee/Alphalaneous",
-        "source": "https://github.com/Alphalaneous/Relog",
-        "community": "https://discord.gg/Txn2CA5dHF"
-    },
+		"links": {
+		"homepage": "https://linktr.ee/Alphalaneous",
+		"source": "https://github.com/Alphalaneous/Relog",
+		"community": "https://discord.gg/Txn2CA5dHF"
+	},
 	"settings": {
+		"enable-mod": {
+			"name": "Enabled",
+			"description": "If the console should even be enabled.",
+			"type": "bool",
+			"default": true
+		},
 		"ui-scale": {
 			"name": "UI Scale",
-            "description": "How big the UI should be on the Console. APPLYING WILL LAG",
-            "type": "float",
-    		"min": 0.85,
+			"description": "How big the UI should be on the Console. APPLYING WILL LAG",
+			"type": "float",
+			"min": 0.85,
 			"max": 3,
-            "default":  {
+			"default":  {
 				"win": 1.0,
 				"mac": 1.0,
 				"android": 1.5,

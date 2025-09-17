@@ -2,8 +2,10 @@
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/VideoOptionsLayer.hpp>
 #include <Geode/modify/CCScene.hpp>
+#include <geode.custom-keybinds/include/Keybinds.hpp>
 #include "Console.hpp"
 
+using namespace keybinds;
 using namespace geode::prelude;
 
 auto convertTime(auto timePoint) {
@@ -71,22 +73,59 @@ $on_mod(Loaded) {
             SceneManager::get()->keepAcrossScenes(console);
         }
     });
+
+    listenForSettingChanges("enable-mod", [](bool value) {
+        if (!value) {
+            if (auto console = Console::get()) {
+                console->destroyConsole();
+            }
+        }
+        else {
+            Mod::get()->setSavedValue("hidden", false);
+            auto console = Console::create();
+            console->retain();
+            LogStore::get()->repopulateConsole();
+            console->m_added = true;
+            SceneManager::get()->keepAcrossScenes(console);
+        }   
+    });
+
+    BindManager::get()->registerBindable({
+        "hide-console"_spr,
+        "Hide Console",
+        "Hides the console window",
+        { Keybind::create(cocos2d::KEY_F1, Modifier::Control) },
+        "Relog",
+		false
+    });
+
+    new EventListener([=](InvokeBindEvent* event) {
+		if (event->isDown()) {
+            auto state = Mod::get()->getSavedValue<bool>("hidden");
+            Mod::get()->setSavedValue("hidden", !state);
+            if (auto console = Console::get()) {
+                console->setVisible(state);
+            }
+		}
+		return ListenerResult::Propagate;
+    }, InvokeBindFilter(nullptr, "hide-console"_spr));
 }
 
 class $modify(MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
+        if (Mod::get()->getSettingValue<bool>("enable-mod")) {
+            auto console = Console::get();
+            if (!console) {
+                console = Console::create();
+                console->retain();
+                LogStore::get()->repopulateConsole();
+            }
 
-        auto console = Console::get();
-        if (!console) {
-            console = Console::create();
-            console->retain();
-            LogStore::get()->repopulateConsole();
-        }
-
-        if (!console->m_added) {
-            console->m_added = true;
-            SceneManager::get()->keepAcrossScenes(console);
+            if (!console->m_added) {
+                console->m_added = true;
+                SceneManager::get()->keepAcrossScenes(console);
+            }
         }
 
         return true;

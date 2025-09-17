@@ -19,7 +19,7 @@ void LogStore::repopulateConsole() {
         for (const auto& log : m_logs) {
             console->pushLog(log, false);
         }
-        //console->updateScrollLayout();
+        console->updateScrollLayout();
     }
 }
 
@@ -188,18 +188,6 @@ void DragBar::ccTouchMoved(CCTouch* touch, CCEvent* event) {
         if (!parent)
             return;
 
-        CCSize parentSize = parent->getContentSize();
-        CCSize nodeSize = m_nodeToMove->getContentSize();
-        CCPoint anchor = m_nodeToMove->getAnchorPoint();
-
-        float minX = nodeSize.width * anchor.x;
-        float maxX = parentSize.width - nodeSize.width * (1 - anchor.x);
-        float minY = nodeSize.height * anchor.y;
-        float maxY = parentSize.height - nodeSize.height * (1 - anchor.y);
-
-        newPos.x = std::max(minX, std::min(newPos.x, maxX));
-        newPos.y = std::max(minY, std::min(newPos.y, maxY));
-
         m_nodeToMove->setPosition(newPos);
     }
     if (m_resizing) {
@@ -214,21 +202,7 @@ void DragBar::ccTouchMoved(CCTouch* touch, CCEvent* event) {
 void DragBar::resizeSchedule(float dt) {
     if (m_resizing) {
         m_nodeToMove->setContentSize(m_queuedSize);
-        CCNode* parent = m_nodeToMove->getParent();
         CCPoint pos = m_nodeToMove->getPosition();
-
-        CCSize parentSize = parent->getContentSize();
-        CCSize nodeSize = m_nodeToMove->getContentSize();
-        CCPoint anchor = m_nodeToMove->getAnchorPoint();
-
-        float minX = nodeSize.width * anchor.x;
-        float maxX = parentSize.width - nodeSize.width * (1 - anchor.x);
-        float minY = nodeSize.height * anchor.y;
-        float maxY = parentSize.height - nodeSize.height * (1 - anchor.y);
-
-        pos.x = std::max(minX, std::min(pos.x, maxX));
-        pos.y = std::max(minY, std::min(pos.y, maxY));
-
         m_nodeToMove->setPosition(pos);
     }
 }
@@ -270,6 +244,9 @@ Console::~Console() {
 
 bool Console::init() {
     if (!CCLayerColor::initWithColor({0, 0, 0, 220})) return false;
+    if (Mod::get()->getSavedValue<bool>("hidden", false)) {
+        setVisible(false);
+    }
     m_blockMenu = CCMenu::create();
     m_blockMenu->ignoreAnchorPointForPosition(false);
     m_blockMenuItem = CCMenuItemSpriteExtra::create(CCNode::create(), this, nullptr);
@@ -388,8 +365,9 @@ void Console::setMinimized(bool minimized) {
     auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
 
     if (minimized) {
-        setPosition({getPositionX(), getPositionY() + getContentSize().height - 8.5f * scaleMultiplier});
+        auto height = getContentHeight();
         setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
+        setPosition({getPositionX(), getPositionY() + height - 8.5f * scaleMultiplier});
     }
     else {
         float mainSizeWidth = Mod::get()->getSavedValue<float>("sizeWidth", 300);
@@ -398,23 +376,6 @@ void Console::setMinimized(bool minimized) {
         CCSize mainSize = {mainSizeWidth, mainSizeHeight};
         setContentSize(mainSize);
         setPosition({getPositionX(), getPositionY() - getContentSize().height + 8.5f * scaleMultiplier});
-
-        CCNode* parent = getParent();
-        CCPoint pos = getPosition();
-
-        CCSize parentSize = parent->getContentSize();
-        CCSize nodeSize = getContentSize();
-        CCPoint anchor = getAnchorPoint();
-
-        float minX = nodeSize.width * anchor.x;
-        float maxX = parentSize.width - nodeSize.width * (1 - anchor.x);
-        float minY = nodeSize.height * anchor.y;
-        float maxY = parentSize.height - nodeSize.height * (1 - anchor.y);
-
-        pos.x = std::max(minX, std::min(pos.x, maxX));
-        pos.y = std::max(minY, std::min(pos.y, maxY));
-
-        setPosition(pos);
     }
 }
 
@@ -424,9 +385,8 @@ int calculateOffset(const Log& log) {
 
 void Console::pushLog(const Log& log, bool updateLayout) {
     auto contentLayer = m_scrollLayer->m_contentLayer;
-    size_t children = contentLayer->getChildrenCount();
 
-    if (children > Mod::get()->getSettingValue<int>("log-limit")) {
+    if (contentLayer->getChildrenCount() > Mod::get()->getSettingValue<int>("log-limit")) {
         contentLayer->getChildrenExt()[0]->removeFromParent();
     }
 
@@ -444,8 +404,8 @@ void Console::pushLog(const Log& log, bool updateLayout) {
     }
 
     for (auto& log : logs) {
-        if (children > 1) {
-            CCNode* next = contentLayer->getChildrenExt()[children - 1];
+        if (contentLayer->getChildrenCount() > 1) {
+            CCNode* next = contentLayer->getChildrenExt()[contentLayer->getChildrenCount() - 1];
             contentLayer->insertAfter(createCell(std::move(log)), next);
         }
         else {
@@ -508,9 +468,27 @@ void Console::setContentSize(const CCSize& size) {
 }
 
 void Console::setPosition(const CCPoint& point) {
-    CCLayerColor::setPosition(point);
     Mod::get()->setSavedValue("posX", getPositionX());
     Mod::get()->setSavedValue("posY", getPositionY());
+
+    CCPoint pos = point;
+
+    CCSize winSize = CCDirector::get()->getWinSize();
+    CCSize nodeSize = getContentSize();
+    CCPoint anchor = getAnchorPoint();
+    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+
+    float offset = 20 * Mod::get()->getSettingValue<float>("ui-scale");
+
+    float minX = nodeSize.width * anchor.x - nodeSize.width + offset;
+    float maxX = winSize.width - nodeSize.width * (1 - anchor.x) + nodeSize.width - offset;
+    float minY = nodeSize.height * anchor.y - nodeSize.height + 8 * scaleMultiplier;
+    float maxY = winSize.height - nodeSize.height * (1 - anchor.y);
+
+    pos.x = std::max(minX, std::min(pos.x, maxX));
+    pos.y = std::max(minY, std::min(pos.y, maxY));
+    
+    CCLayerColor::setPosition(pos);
 }
 
 LogCell* LogCell::create(Log&& log, CCSize size) {
