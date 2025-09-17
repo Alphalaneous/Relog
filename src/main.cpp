@@ -77,28 +77,19 @@ $on_mod(Loaded) {
         }
     });
 
-    listenForSettingChanges("enable-mod", [](bool value) {
-        if (!value) {
-            if (auto console = Console::get()) {
-                console->destroyConsole();
-            }
+    listenForSettingChanges("show-console", [](bool value) {
+        Mod::get()->setSavedValue("hidden", !value);
+        if (auto console = Console::get()) {
+            console->setVisible(value);
         }
-        else {
-            Mod::get()->setSavedValue("hidden", false);
-            auto console = Console::create();
-            console->retain();
-            LogStore::get()->repopulateConsole();
-            console->m_added = true;
-            SceneManager::get()->keepAcrossScenes(console);
-        }   
     });
 
     #ifndef GEODE_IS_IOS
     
     BindManager::get()->registerBindable({
-        "hide-console"_spr,
-        "Hide Console",
-        "Hides the console window",
+        "toggle-console"_spr,
+        "Toggle Console",
+        "Toggles the console window",
         { Keybind::create(cocos2d::KEY_F1, Modifier::Control) },
         "Relog",
 		false
@@ -106,14 +97,14 @@ $on_mod(Loaded) {
 
     new EventListener([=](InvokeBindEvent* event) {
 		if (event->isDown()) {
-            auto state = Mod::get()->getSavedValue<bool>("hidden");
-            Mod::get()->setSavedValue("hidden", !state);
+            auto state = Mod::get()->getSettingValue<bool>("show-console");
+            Mod::get()->setSettingValue("show-console", !state);
             if (auto console = Console::get()) {
-                console->setVisible(state);
+                console->setVisible(!state);
             }
 		}
 		return ListenerResult::Propagate;
-    }, InvokeBindFilter(nullptr, "hide-console"_spr));
+    }, InvokeBindFilter(nullptr, "toggle-console"_spr));
 
     #endif
 }
@@ -121,18 +112,17 @@ $on_mod(Loaded) {
 class $modify(MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
-        if (Mod::get()->getSettingValue<bool>("enable-mod")) {
-            auto console = Console::get();
-            if (!console) {
-                console = Console::create();
-                console->retain();
-                LogStore::get()->repopulateConsole();
-            }
+        auto console = Console::get();
+        if (!console) {
+            console = Console::create();
+            console->retain();
+            console->ensurePosition();
+            LogStore::get()->repopulateConsole();
+        }
 
-            if (!console->m_added) {
-                console->m_added = true;
-                SceneManager::get()->keepAcrossScenes(console);
-            }
+        if (!console->m_added) {
+            console->m_added = true;
+            SceneManager::get()->keepAcrossScenes(console);
         }
 
         return true;

@@ -38,9 +38,9 @@
 		"community": "https://discord.gg/Txn2CA5dHF"
 	},
 	"settings": {
-		"enable-mod": {
-			"name": "Enabled",
-			"description": "If the console should even be enabled.",
+		"show-console": {
+			"name": "Show Console",
+			"description": "If the console window should be visible.",
 			"type": "bool",
 			"default": true
 		},

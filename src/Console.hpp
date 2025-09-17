@@ -90,6 +90,7 @@ public:
     void pushLog(const Log& log, bool updateLayout = true);
     void updateScrollLayout();
     void refresh();
+    void ensurePosition();
 
     void onEnter() override;
 

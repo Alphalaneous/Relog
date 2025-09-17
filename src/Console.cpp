@@ -244,7 +244,7 @@ Console::~Console() {
 
 bool Console::init() {
     if (!CCLayerColor::initWithColor({0, 0, 0, 220})) return false;
-    if (Mod::get()->getSavedValue<bool>("hidden", false)) {
+    if (!Mod::get()->getSettingValue<bool>("show-console")) {
         setVisible(false);
     }
     m_blockMenu = CCMenu::create();
@@ -255,8 +255,10 @@ bool Console::init() {
     setUserObject("alphalaneous.to_the_top/fix-touch", CCBool::create(true));
     setZOrder(5000);
 
-    float posX = Mod::get()->getSavedValue<float>("posX", 20);
-    float posY = Mod::get()->getSavedValue<float>("posY", 20);
+    auto winSize = CCDirector::get()->getWinSize();
+
+    float posX = Mod::get()->getSavedValue<float>("posX", winSize.width/2);
+    float posY = Mod::get()->getSavedValue<float>("posY", winSize.height/2);
 
     setPosition({posX, posY});
 
@@ -325,10 +327,6 @@ bool Console::init() {
 
     handleTouchPriority(this);
 
-    queueInMainThread([] {
-        LogStore::get()->repopulateConsole();
-    });
-
     return true;
 }
 
@@ -349,6 +347,9 @@ void Console::onEnter() {
     }
 }
 
+void Console::ensurePosition() {
+    setPosition(getPosition());
+}
 
 void Console::destroyConsole() {
     removeFromParent();
