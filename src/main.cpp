@@ -2,10 +2,13 @@
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/VideoOptionsLayer.hpp>
 #include <Geode/modify/CCScene.hpp>
-#include <geode.custom-keybinds/include/Keybinds.hpp>
 #include "Console.hpp"
 
+#ifndef GEODE_IS_IOS
+#include <geode.custom-keybinds/include/Keybinds.hpp>
 using namespace keybinds;
+#endif
+
 using namespace geode::prelude;
 
 auto convertTime(auto timePoint) {
@@ -90,6 +93,8 @@ $on_mod(Loaded) {
         }   
     });
 
+    #ifndef GEODE_IS_IOS
+    
     BindManager::get()->registerBindable({
         "hide-console"_spr,
         "Hide Console",
@@ -109,6 +114,8 @@ $on_mod(Loaded) {
 		}
 		return ListenerResult::Propagate;
     }, InvokeBindFilter(nullptr, "hide-console"_spr));
+
+    #endif
 }
 
 class $modify(MenuLayer) {

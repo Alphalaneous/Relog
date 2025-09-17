@@ -24,7 +24,11 @@
 	},
 	"dependencies": {
 		"alphalaneous.to_the_top": ">=1.0.5",
-		"geode.custom-keybinds": ">=1.10.4"
+		"geode.custom-keybinds": {
+			"version": ">=v1.10.4",
+			"importance": "required",
+			"platforms": ["win", "android", "mac"]
+		}
 	},
 	"early-load": true,
 	"tags": ["developer", "utility", "offline", "enhancement"],
