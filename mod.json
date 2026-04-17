@@ -1,16 +1,19 @@
 {
-	"geode": "4.8.0",
+	"geode": "5.6.0",
 	"gd": {
-		"win": "2.2074",
-		"android": "2.2074",
-		"mac": "2.2074",
-		"ios": "2.2074"
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.0.3",
+	"version": "v1.1.0",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
+	"dependencies": {
+		"alphalaneous.alphas-ui-pack": "v1.1.0"
+	},
 	"resources": {
 		"fonts": {
 			"Consolas": {
@@ -22,14 +25,6 @@
 			"resources/*.png"
 		]
 	},
-	"dependencies": {
-		"alphalaneous.to_the_top": ">=1.0.5",
-		"geode.custom-keybinds": {
-			"version": ">=v1.10.4",
-			"importance": "required",
-			"platforms": ["win", "android", "mac"]
-		}
-	},
 	"early-load": true,
 	"tags": ["developer", "utility", "offline", "enhancement"],
 		"links": {
@@ -38,15 +33,20 @@
 		"community": "https://discord.gg/Txn2CA5dHF"
 	},
 	"settings": {
-		"show-console": {
-			"name": "Show Console",
-			"description": "If the console window should be visible.",
-			"type": "bool",
-			"default": true
+		"toggle-console": {
+			"type": "button",
+			"buttons": {
+				"toggle": "Toggle Console"
+			}
 		},
-		"ui-scale": {
-			"name": "UI Scale",
-			"description": "How big the UI should be on the Console. APPLYING WILL LAG",
+		"toggle-console-keybind": {
+			"type": "keybind",
+			"name": "Toggle Console Keybind",
+			"default": ["Ctrl+F1"],
+			"description": "The key used to open and close the console window."
+		},
+		"font-size": {
+			"name": "Font Size",
 			"type": "float",
 			"min": 0.85,
 			"max": 3,
@@ -72,6 +72,33 @@
 			"min": 100,
 			"max": 5000,
 			"default": 500
+		},
+		"blur-title": {
+			"type": "title",
+			"name": "Blur"
+		},
+		"enable-blur": {
+			"name": "Enabled",
+			"type": "bool",
+			"default": true,
+			"description": "Add blur behind the console window.",
+			"enable-if": "loaded:thesillydoggo.blur-api",
+			"enable-if-description": "Requires the \"Blur API\" mod to be installed."
+		},
+		"blur-passes": {
+			"name": "Passes",
+			"type": "int",
+			"description": "The blur quality",
+			"enable-if": "loaded:thesillydoggo.blur-api",
+			"enable-if-description": "Requires the \"Blur API\" mod to be installed.",
+			"min": 3,
+			"max": 10,
+			"default": {
+				"win": 5,
+				"mac": 5,
+				"android": 3,
+				"ios": 3
+			}
 		}
 	}
 }

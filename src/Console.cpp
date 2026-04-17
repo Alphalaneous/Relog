@@ -1,627 +1,280 @@
 #include "Console.hpp"
-
-LogStore* LogStore::s_instance = nullptr;
-
-std::vector<Log> LogStore::getLogs() {
-    return m_logs;
-}
-
-void LogStore::pushLog(Log&& log) {
-    if (auto console = Console::get()) {
-        console->pushLog(log);
-    }
-
-    m_logs.push_back(std::move(log));
-}
-
-void LogStore::repopulateConsole() {
-    if (Console* console = Console::get()) {
-        for (const auto& log : m_logs) {
-            console->pushLog(log, false);
-        }
-        console->updateScrollLayout();
-    }
-}
-
-LogStore* LogStore::get() {
-    if (!s_instance) {
-        s_instance = new LogStore();
-    }
-    return s_instance;
-}
-
-DragBar* DragBar::create() {
-    auto dragBar = new DragBar();
-    if (dragBar->init()) {
-        dragBar->autorelease();
-        return dragBar;
-    }
-    delete dragBar;
-    return nullptr;
-}
-
-bool DragBar::init() {
-    if (!CCLayerColor::init()) return false;
-    setColor({0, 0, 0});
-    setOpacity(127);
-    setTouchEnabled(true);
-    scheduleUpdate();
-
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    m_logsLabel = CCLabelBMFont::create("Logs", "Consolas.fnt"_spr);
-    m_logsLabel->setAnchorPoint({0, 0.5f});
-    m_logsLabel->setScale(0.3f * scaleMultiplier);
-    m_logsLabel->setPosition({11 * scaleMultiplier, 4.5f * scaleMultiplier});
-
-    m_resizeSprite = CCSprite::create("resize.png"_spr);
-    m_resizeSprite->setAnchorPoint({1, 1});
-    m_resizeSprite->setPosition(getContentSize());
-    m_resizeSprite->setOpacity(64);
-    m_resizeSprite->setScale(scaleMultiplier);
-
-    addChild(m_resizeSprite);
-
-    m_minimizeSprite = CCSprite::create("minimize.png"_spr);
-    m_minimizeSprite->setAnchorPoint({0, 0.5f});
-    m_minimizeSprite->setPosition({1, 4 * scaleMultiplier});
-    m_minimizeSprite->setOpacity(64);
-    m_minimizeSprite->setScale(scaleMultiplier);
-
-    addChild(m_minimizeSprite);
-
-    schedule(schedule_selector(DragBar::resizeSchedule), 0.0083);
-
-    addChild(m_logsLabel);
-
-    if (Mod::get()->getSavedValue<bool>("isMinimized", false)) {
-        m_minimized = true;
-        m_minimizeSprite->setDisplayFrame(CCSprite::create("unminimize.png"_spr)->displayFrame());
-        m_resizeSprite->setVisible(false);
-    }
-
-    return true;
-}
-
-void DragBar::refresh() {
-    m_logsLabel->setFntFile("Consolas.fnt"_spr);
-    m_resizeSprite->setDisplayFrame(CCSprite::create("resize.png"_spr)->displayFrame());
-    if (m_minimized) {
-        m_minimizeSprite->setDisplayFrame(CCSprite::create("unminimize.png"_spr)->displayFrame());
-    }
-    else {
-        m_minimizeSprite->setDisplayFrame(CCSprite::create("minimize.png"_spr)->displayFrame());
-    }
-}
-
-class ScrollbarProMax : public geode::Scrollbar {
-public:
-    CCScale9Sprite* getTrack() {
-        return m_track;
-    }
-    CCScale9Sprite* getThumb() {
-        return m_thumb;
-    }
-};
-
-void DragBar::setMinimized(bool minimized) {
-    m_minimized = minimized;
-    Console* console = static_cast<Console*>(m_nodeToMove);
-    Mod::get()->setSavedValue("isMinimized", minimized);
-    console->setMinimized(minimized);
-
-    if (minimized) {
-        m_minimizeSprite->setDisplayFrame(CCSprite::create("unminimize.png"_spr)->displayFrame());
-        m_resizeSprite->setVisible(false);
-    }
-    else {
-        m_minimizeSprite->setDisplayFrame(CCSprite::create("minimize.png"_spr)->displayFrame());
-        m_resizeSprite->setVisible(true);
-    }
-}
-
-void DragBar::registerWithTouchDispatcher() {
-    CCDirector::get()->getTouchDispatcher()->addPrioTargetedDelegate(this, -129,true);
-}
-
-void DragBar::setNodeToMove(CCNode* node) {
-    m_nodeToMove = node;
-}
-
-void DragBar::setContentSize(const CCSize& size) {
-    CCLayerColor::setContentSize(size);
-    if (m_resizeSprite) {
-        m_resizeSprite->setPosition(getContentSize());
-    }
-}
-
-bool DragBar::ccTouchBegan(CCTouch* touch, CCEvent* event) {
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    CCPoint locationInView = touch->getLocation();
-    CCPoint locationInNode = this->convertToNodeSpace(locationInView);
-    m_expectedContentSize = m_nodeToMove->getContentSize();
-    m_queuedSize = m_nodeToMove->getContentSize();
-
-    float width = this->getContentSize().width - 20 * scaleMultiplier;
-
-    if (m_minimized) width += 10 * scaleMultiplier;
-
-    CCRect bounds = CCRect(10 * scaleMultiplier, 0, width, this->getContentSize().height);
-    if (bounds.containsPoint(locationInNode)) {
-        m_lastTouchPos = locationInView;
-        m_dragging = true;
-        return true;
-    }
-
-    if (!m_minimized) {
-        CCRect resizeBounds = CCRect(this->getContentSize().width - 10 * scaleMultiplier, 0, 10 * scaleMultiplier, this->getContentSize().height);
-        if (resizeBounds.containsPoint(locationInNode)) {
-            m_lastTouchPos = locationInView;
-            m_resizing = true;
-            m_resizeSprite->setOpacity(127);
-            return true;
-        }
-    }
-
-    CCRect minimizeBounds = CCRect(0, 0, 10 * scaleMultiplier, this->getContentSize().height);
-    if (minimizeBounds.containsPoint(locationInNode)) {
-        m_minimizeSprite->setOpacity(127);
-        setMinimized(!m_minimized);
-        return true;
-    }
-
-    return false;
-}
-
-void DragBar::ccTouchMoved(CCTouch* touch, CCEvent* event) {
-    if (!m_nodeToMove) return;
-
-    CCPoint currentPos = touch->getLocation();
-    CCPoint delta = currentPos - m_lastTouchPos;
-    m_lastTouchPos = currentPos;
-
-    CCPoint newPos = m_nodeToMove->getPosition() + delta;
-
-    if (m_dragging) {
-        CCNode* parent = m_nodeToMove->getParent();
-        if (!parent)
-            return;
-
-        m_nodeToMove->setPosition(newPos);
-    }
-    if (m_resizing) {
-        m_queuedSize = CCSize{m_expectedContentSize.width + delta.x, m_expectedContentSize.height + delta.y};
-        CCSize winSize = CCDirector::get()->getWinSize();
-        m_queuedSize.width = std::max(100.f, std::min(m_queuedSize.width, winSize.width));
-        m_queuedSize.height = std::max(100.f, std::min(m_queuedSize.height, winSize.height));
-        m_expectedContentSize = m_queuedSize;
-    }
-}
-
-void DragBar::resizeSchedule(float dt) {
-    if (m_resizing) {
-        m_nodeToMove->setContentSize(m_queuedSize);
-        CCPoint pos = m_nodeToMove->getPosition();
-        m_nodeToMove->setPosition(pos);
-    }
-}
-
-void DragBar::ccTouchEnded(CCTouch* touch, CCEvent* event) {
-    m_dragging = false;
-    m_resizing = false;
-    m_resizeSprite->setOpacity(64);
-    m_minimizeSprite->setOpacity(64);
-}
-
-void DragBar::ccTouchCancelled(CCTouch* touch, CCEvent* event) {
-    m_dragging = false;
-    m_resizing = false;
-    m_resizeSprite->setOpacity(64);
-    m_minimizeSprite->setOpacity(64);
-}
-
-Console* Console::s_instance = nullptr;
+#include "Utils.hpp"
+#include "LogHandler.hpp"
+#include "BlurAPI.hpp"
 
 Console* Console::create() {
-    auto console = new Console();
-    if (console->init()) {
-        console->autorelease();
-        s_instance = console;
-        return console;
+    auto ret = new Console();
+    if (ret->init()) {
+        ret->autorelease();
+        return ret;
     }
-    delete console;
+    delete ret;
     return nullptr;
-}
-
-Console* Console::get() {
-    return s_instance;
-}
-
-Console::~Console() {
-    s_instance = nullptr;
 }
 
 bool Console::init() {
-    if (!CCLayerColor::initWithColor({0, 0, 0, 220})) return false;
-    if (!Mod::get()->getSettingValue<bool>("show-console")) {
-        setVisible(false);
-    }
-    m_blockMenu = CCMenu::create();
-    m_blockMenu->ignoreAnchorPointForPosition(false);
-    m_blockMenuItem = CCMenuItemSpriteExtra::create(CCNode::create(), this, nullptr);
-    m_blockMenuItem->m_fSizeMult = 1;
-    setID("console"_spr);
-    setUserObject("alphalaneous.to_the_top/fix-touch", CCBool::create(true));
-    setZOrder(5000);
+    if (!CCNode::init()) return false;
 
-    auto winSize = CCDirector::get()->getWinSize();
+    m_background = geode::NineSlice::create("square.png"_spr);
+    m_background->setColor({0, 0, 0});
+    m_background->setScaleMultiplier(0.5f);
+    m_background->setPosition(getContentSize() / 2);
+    m_background->setOpacity(220);
 
-    float posX = Mod::get()->getSavedValue<float>("posX", winSize.width/2);
-    float posY = Mod::get()->getSavedValue<float>("posY", winSize.height/2);
+    m_border = geode::NineSlice::create("border.png"_spr);
+    m_border->setColor({255, 255, 255});
+    m_border->setScaleMultiplier(0.5f);
+    m_border->setPosition(getContentSize() / 2);
+    m_border->setOpacity(175);
+    m_border->setZOrder(10);
 
-    setPosition({posX, posY});
+    m_grabber = CCSprite::create("grabber.png"_spr);
+    m_grabber->setAnchorPoint({0.f, 1.f});
+    m_grabber->setScale(0.5f);
+    m_grabber->setOpacity(100);
 
-    float mainSizeWidth = Mod::get()->getSavedValue<float>("sizeWidth", 300);
-    float mainSizeHeight = Mod::get()->getSavedValue<float>("sizeHeight", 150);
+    m_background->addChild(m_grabber);
 
-    CCSize mainSize = {mainSizeWidth, mainSizeHeight};
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+    m_scrollLayer = AdvancedScrollLayer::create({192, 99});
 
-    setContentSize(mainSize);
-    setAnchorPoint({0, 0});
-    ignoreAnchorPointForPosition(false);
+    auto layout = static_cast<SimpleColumnLayout*>(ScrollLayer::createDefaultListLayout(0));
+    layout->setPadding({0, 3, 0, 3});
 
-    m_blockMenu->setContentSize(mainSize);
-    m_blockMenu->setPosition(0, 0);
-    m_blockMenu->setAnchorPoint({0, 0});
-    m_blockMenuItem->setContentSize(mainSize);
-    m_blockMenuItem->setAnchorPoint({0, 0});
+    m_scrollLayer->getContentLayer()->setLayout(layout);
+    m_scrollLayer->setAnchorPoint({0, 0});
+    m_scrollLayer->setPosition({4, 0.5f});
 
-    m_blockMenu->addChild(m_blockMenuItem);
+    addChild(m_background);
+    m_background->addChild(m_scrollLayer);
+    m_background->addChild(m_border);
 
-    addChild(m_blockMenu);
+    setAnchorPoint({0, 1});
 
-    m_scrollLayer = BoundedScrollLayer::create({mainSize.width - 2, mainSize.height - 9 * scaleMultiplier});
+    setContentSize({200, 100});
 
-    m_scrollLayer->m_contentLayer->setLayout(
-        SimpleColumnLayout::create()
-            ->setMainAxisDirection(AxisDirection::TopToBottom)
-            ->setMainAxisAlignment(MainAxisAlignment::End)
-            ->setMainAxisScaling(AxisScaling::Fit)
-            ->setGap(2.5f)
-    );
-    m_scrollLayer->setPosition({1, 1});
-
-    ScrollbarProMax* scrollbar = static_cast<ScrollbarProMax*>(geode::Scrollbar::create(m_scrollLayer));
-    //scrollbar->setTouchEnabled(false);
-    scrollbar->setAnchorPoint({1, 0});
-    scrollbar->setContentSize({4 * scaleMultiplier, mainSize.height - 10 * scaleMultiplier});
-    scrollbar->setScaleX(0.75f * scaleMultiplier);
-    scrollbar->setPosition({getContentWidth(), 0});
-    scrollbar->getTrack()->setOpacity(0);
-    scrollbar->getThumb()->setOpacity(127);
-
-    m_scrollbar = scrollbar;
-
-    addChild(m_scrollLayer);
-    addChild(scrollbar);
-
-    m_dragBar = DragBar::create();
-    m_dragBar->setNodeToMove(this);
-    m_dragBar->setAnchorPoint({0, 1});
-    m_dragBar->setPosition({0, getContentHeight()});
-    m_dragBar->setContentSize({getContentWidth(), 8 * scaleMultiplier});
-    m_dragBar->ignoreAnchorPointForPosition(false);
-    m_dragBar->setZOrder(1);
-
-    addChild(m_dragBar);
-
-    if (Mod::get()->getSavedValue<bool>("isMinimized", false)) {
-        m_minimized = true;
-        m_scrollbar->setVisible(false);
-        m_scrollLayer->setVisible(false);
-        m_blockMenu->setVisible(false);
-        setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
-    }
-
-    handleTouchPriority(this);
+    auto touchOverlay = Dragger::create(this);
+    touchOverlay->setZOrder(10000);
+    addChild(touchOverlay);
 
     return true;
+}
+
+void Console::addLog(LogCell* log) {
+    if (!relog::utils::shouldOutputLog(log->getLogData()->m_severity, log->getLogData()->m_mod)) return;
+
+    if (m_scrollLayer->getContentLayer()->getChildrenCount() > Mod::get()->getSettingValue<int>("log-limit")) {
+        m_scrollLayer->getContentLayer()->getChildrenExt()[0]->removeFromParent();
+    }
+
+    bool isBottom = m_scrollLayer->getScrollPoint().y == m_scrollLayer->getVerticalMax();
+    log->setContentWidth(m_scrollLayer->getContentWidth());
+
+    if (m_scrollLayer->getContentLayer()->getChildrenCount() == 0) {
+        m_scrollLayer->getContentLayer()->addChild(log);
+    }
+    else {
+        m_scrollLayer->getContentLayer()->insertAfter(log, static_cast<CCNode*>(m_scrollLayer->getContentLayer()->getChildren()->lastObject()));
+    }
+    m_scrollLayer->getContentLayer()->updateLayout();
+    if (isBottom) {
+        m_scrollLayer->setScrollY(m_scrollLayer->getVerticalMax());
+    }
 }
 
 void Console::onEnter() {
-    CCLayerColor::onEnter();
-    int scrollLayerPrio = 0;
-
-    if (auto delegate = typeinfo_cast<CCTouchDelegate*>(m_scrollLayer)) {
-        if (auto handler = CCTouchDispatcher::get()->findHandler(delegate)) {
-            scrollLayerPrio = handler->getPriority();
-        }
-    }
-
-    if (auto delegate = typeinfo_cast<CCTouchDelegate*>(m_scrollbar)) {
-        if (auto handler = CCTouchDispatcher::get()->findHandler(delegate)) {
-            CCTouchDispatcher::get()->setPriority(scrollLayerPrio - 1, handler->getDelegate());
-        }
-    }
+    CCNode::onEnter();
+    CCTouchDispatcher::get()->addTargetedDelegate(this, 10000 /*Scary*/, true);
 }
 
-void Console::ensurePosition() {
-    setPosition(getPosition());
+void Console::onExit() {
+    CCNode::onExit();
+    CCTouchDispatcher::get()->removeDelegate(this);
 }
 
-void Console::destroyConsole() {
-    removeFromParent();
-    SceneManager::get()->forget(this);
-    release();
-    s_instance = nullptr;
-}
-
-void Console::setMinimized(bool minimized) {
-    m_minimized = minimized;
-    m_scrollbar->setVisible(!minimized);
-    m_scrollLayer->setVisible(!minimized);
-    m_blockMenu->setVisible(!minimized);
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    if (minimized) {
-        auto height = getContentHeight();
-        setContentSize({24 * scaleMultiplier, 8.5f * scaleMultiplier});
-        setPosition({getPositionX(), getPositionY() + height - 8.5f * scaleMultiplier});
-    }
-    else {
-        float mainSizeWidth = Mod::get()->getSavedValue<float>("sizeWidth", 300);
-        float mainSizeHeight = Mod::get()->getSavedValue<float>("sizeHeight", 150);
-
-        CCSize mainSize = {mainSizeWidth, mainSizeHeight};
-        setContentSize(mainSize);
-        setPosition({getPositionX(), getPositionY() - getContentSize().height + 8.5f * scaleMultiplier});
-    }
-}
-
-int calculateOffset(const Log& log) {
-    return 22 + log.threadName.size() + log.mod->getName().size();
-}
-
-void Console::pushLog(const Log& log, bool updateLayout) {
-    auto contentLayer = m_scrollLayer->m_contentLayer;
-
-    if (contentLayer->getChildrenCount() > Mod::get()->getSettingValue<int>("log-limit")) {
-        contentLayer->getChildrenExt()[0]->removeFromParent();
-    }
-
-    std::vector<std::string> lines = geode::utils::string::split(log.message, "\n");
-    std::vector<Log> logs;
-    bool firstLine = true;
-    if (lines.size() > 1) {
-        for (const std::string& line : lines) {
-            logs.push_back({log.mod, log.severity, line, log.threadName, log.time, !firstLine, calculateOffset(log)});
-            firstLine = false;
-        }
-    }
-    else {
-        logs.push_back(log);
-    }
-
-    for (auto& log : logs) {
-        if (contentLayer->getChildrenCount() > 1) {
-            CCNode* next = contentLayer->getChildrenExt()[contentLayer->getChildrenCount() - 1];
-            contentLayer->insertAfter(createCell(std::move(log)), next);
-        }
-        else {
-            contentLayer->addChild(createCell(std::move(log)));
-        }
-    }
-    if (updateLayout) {
-        contentLayer->updateLayout();
-        contentLayer->setPosition(contentLayer->getPosition());
-    }
-}
-
-void Console::refresh() {
-    m_dragBar->refresh();
-    for (auto log : CCArrayExt<LogCell*>(m_scrollLayer->m_contentLayer->m_pChildren)) {
-        log->refresh();
-    }
-}
-
-void Console::updateScrollLayout() {
-    m_scrollLayer->m_contentLayer->updateLayout();
-    m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
-}
-
-CCNode* Console::createCell(Log&& log) {
-    LogCell* logCell = LogCell::create(std::move(log), getContentSize());
-
-    return logCell;
-}
-
-void Console::setContentSize(const CCSize& size) {
-    CCLayerColor::setContentSize(size);
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    if (m_scrollLayer) {
-        m_scrollLayer->setContentSize({size.width - 2, size.height - 9 * scaleMultiplier});
-        m_scrollLayer->m_contentLayer->setContentSize({size.width - 2, size.height - 9 * scaleMultiplier});
-        for (LogCell* node : CCArrayExt<LogCell*>(m_scrollLayer->m_contentLayer->getChildren())) {
-            node->resize(size);
-        }
-        m_scrollLayer->m_contentLayer->updateLayout();
-        m_scrollLayer->m_contentLayer->setPosition(m_scrollLayer->m_contentLayer->getPosition());
-    }
-    if (m_dragBar) {
-        m_dragBar->setPosition({0, size.height});
-        m_dragBar->setContentSize({size.width, 8 * scaleMultiplier});
-    }
-    if (m_scrollbar) {
-        m_scrollbar->setPosition({size.width, 0});
-        m_scrollbar->setContentSize({4, size.height - 10 * scaleMultiplier});
-    }
-    if (m_blockMenu && m_blockMenuItem) {
-        m_blockMenu->setContentSize(size);
-        m_blockMenuItem->setContentSize(size);
-    }
-    if (!m_minimized && m_scrollLayer) {
-        Mod::get()->setSavedValue("sizeWidth", getContentSize().width);
-        Mod::get()->setSavedValue("sizeHeight", getContentSize().height);
-    }
-}
-
-void Console::setPosition(const CCPoint& point) {
-    Mod::get()->setSavedValue("posX", getPositionX());
-    Mod::get()->setSavedValue("posY", getPositionY());
-
-    CCPoint pos = point;
-
-    CCSize winSize = CCDirector::get()->getWinSize();
-    CCSize nodeSize = getContentSize();
-    CCPoint anchor = getAnchorPoint();
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    float offset = 20 * Mod::get()->getSettingValue<float>("ui-scale");
-
-    float minX = nodeSize.width * anchor.x - nodeSize.width + offset;
-    float maxX = winSize.width - nodeSize.width * (1 - anchor.x) + nodeSize.width - offset;
-    float minY = nodeSize.height * anchor.y - nodeSize.height + 8 * scaleMultiplier;
-    float maxY = winSize.height - nodeSize.height * (1 - anchor.y);
-
-    pos.x = std::max(minX, std::min(pos.x, maxX));
-    pos.y = std::max(minY, std::min(pos.y, maxY));
-    
-    CCLayerColor::setPosition(pos);
-}
-
-LogCell* LogCell::create(Log&& log, CCSize size) {
-    auto logCell = new LogCell();
-    if (logCell->init(std::move(log), size)) {
-        logCell->autorelease();
-        return logCell;
-    }
-    delete logCell;
-    return nullptr;
-}
-
-bool LogCell::init(Log&& log, CCSize size) {
-    if (!CCNode::init()) return false;
-    m_log = std::move(log);
-
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
-
-    setAnchorPoint({0.f, 1.f});
-    setContentSize({size.width-2, 8 * scaleMultiplier});
-
-    RowLayout* layout = RowLayout::create();
-    layout->setAxisAlignment(AxisAlignment::Start);
-    layout->setCrossAxisAlignment(AxisAlignment::End);
-    layout->setGrowCrossAxis(true);
-    layout->setAutoScale(false);
-    layout->setGap(0);
-    setLayout(layout);
-
-    ccColor3B color = {255, 255, 255};
-    ccColor3B color2 = {255, 255, 255};
-
-    switch (m_log.severity.m_value) {
-        case Severity::Debug:
-            color = {118, 118, 118};
-            color2 = {188, 188, 188};
-            break;
-        case Severity::Info:
-            color = {0, 135, 255};
-            color2 = {228, 228, 228};
-            break;
-        case Severity::Warning:
-            color = {255, 255, 175};
-            color2 = {255, 255, 215};
-            break;
-        case Severity::Error:
-            color = {231, 72, 86};
-            color2 = {255, 215, 215};
-            break;
-        default:
-            break;
-    }
-
-    std::string res;
-
-    if (!m_log.newLine) {
-        res = fmt::format("{:%H:%M:%S}", m_log.time);
-
-        switch (m_log.severity.m_value) {
-            case Severity::Debug:
-                res += " DEBUG";
-                break;
-            case Severity::Info:
-                res += " INFO ";
-                break;
-            case Severity::Warning:
-                res += " WARN ";
-                break;
-            case Severity::Error:
-                res += " ERROR";
-                break;
-            default:
-                res += " ?????";
-                break;
-        }
-
-        CCLabelBMFont* timeAndSeverityLabel = CCLabelBMFont::create(res.c_str(), "Consolas.fnt"_spr);
-        timeAndSeverityLabel->setColor(color);
-        timeAndSeverityLabel->setScale(0.3f * scaleMultiplier);
-        addChild(timeAndSeverityLabel);
-
-        std::string threadAndMod;
-
-        if (m_log.threadName.empty())
-            threadAndMod += fmt::format(" [{}]: ", m_log.mod->getName());
-        else
-            threadAndMod += fmt::format(" [{}] [{}]: ", m_log.threadName, m_log.mod->getName());
-
-        CCLabelBMFont* threadAndModLabel = CCLabelBMFont::create(threadAndMod.c_str(), "Consolas.fnt"_spr);
-        threadAndModLabel->setColor(color2);
-        threadAndModLabel->setScale(0.3f * scaleMultiplier);
-        addChild(threadAndModLabel);
-    }
-    else {
-        res = std::string(m_log.offset, ' ');
-        CCLabelBMFont* emptyLabel = CCLabelBMFont::create(res.c_str(), "Consolas.fnt"_spr);
-        emptyLabel->setColor(color);
-        emptyLabel->setScale(0.3f * scaleMultiplier);
-        addChild(emptyLabel);
-    }
-
-    std::vector<std::string> spaceSplit = geode::utils::string::split(m_log.message, " ");
-    CCLabelBMFont* lastSpace = nullptr;
-
-    for (const std::string& string : spaceSplit) {
-        CCLabelBMFont* label = CCLabelBMFont::create(string.c_str(), "Consolas.fnt"_spr);
-        label->setScale(0.3f * scaleMultiplier);
-        label->setColor(color2);
-
-        lastSpace = CCLabelBMFont::create(" ", "Consolas.fnt"_spr);
-        lastSpace->setScale(0.3f * scaleMultiplier);
-        addChild(label);
-        addChild(lastSpace);
-    }
-    if (lastSpace) lastSpace->removeFromParent();
-    updateLayout();
-    setContentHeight(getContentHeight() - 2);
+bool Console::clickBegan(TouchEvent* touch) {
+    if (!nodeIsVisible(this)) return false;
+    if (touch->getButton() != MouseButton::LEFT) return false;
+    if (alpha::utils::isPointInsideNode(m_grabber, touch->getLocation())) return true;
+    if (!alpha::utils::isPointInsideNode(this, touch->getLocation())) return false;
 
     return true;
 }
 
-void LogCell::refresh() {
-    for (auto child : CCArrayExt<CCLabelBMFont*>(getChildren())) {
-        child->setFntFile("Consolas.fnt"_spr);
+void Console::setContentSize(const CCSize& contentSize) {
+    auto newSize = contentSize;
+    auto winSize = CCDirector::get()->getWinSize();
+
+    newSize.width = std::min(std::max(newSize.width, 20.f), winSize.width - 20.f);
+    newSize.height = std::min(std::max(newSize.height, 20.f), winSize.height - 20.f);
+
+    CCNode::setContentSize(newSize);
+
+    Mod::get()->setSavedValue("console-width", newSize.width);
+    Mod::get()->setSavedValue("console-height", newSize.height);
+
+    setPosition(getPosition());
+
+    if (m_background) {
+        m_background->setContentSize(newSize);
+        m_background->setPosition(newSize / 2);
     }
-    updateLayout();
+    if (m_border) {
+        m_border->setContentSize(newSize);
+        m_border->setPosition(newSize / 2);
+    }
+
+    if (m_grabber) {
+        m_grabber->setPosition({newSize.width - 5, 5});
+    }
+
+    if (m_scrollLayer) {
+        bool isBottom = m_scrollLayer->getScrollPoint().y == m_scrollLayer->getVerticalMax();
+
+        m_scrollLayer->setContentSize(newSize - CCSize{8, 1.f});
+        for (auto cell : m_scrollLayer->getContentLayer()->getChildrenExt<LogCell>()) {
+            cell->setContentWidth(m_scrollLayer->getContentWidth());
+        }
+
+        m_scrollLayer->getContentLayer()->setContentWidth(m_scrollLayer->getContentWidth());
+        m_scrollLayer->getContentLayer()->updateLayout();
+
+        if (isBottom) {
+            m_scrollLayer->setScrollY(m_scrollLayer->getVerticalMax());
+        }
+        else {
+            // hacky cull fix, I should update aup to allow manual cull calls
+            m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y - 0.1f);
+            m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y + 0.1f);
+        }
+    }
 }
 
-void LogCell::resize(CCSize size) {
-    auto scaleMultiplier = Mod::get()->getSettingValue<float>("ui-scale");
+void Console::setPosition(const CCPoint& position) {
+    auto newPos = position;
 
-    setContentSize({size.width-2, 8 * scaleMultiplier});
-    updateLayout();
-    setContentHeight(getContentHeight() - 2);
+    CCSize winSize = CCDirector::get()->getWinSize();
+        
+    newPos.x = std::min(std::max(newPos.x, -getContentWidth() + 10), winSize.width - 10);
+    newPos.y = std::min(std::max(newPos.y, 10.f), winSize.height + getContentHeight() - 10);
+
+    CCNode::setPosition(newPos);
+}
+
+geode::NineSlice* Console::getBackground() {
+    return m_background;
+}
+
+AdvancedScrollLayer* Console::getScrollLayer() {
+    return m_scrollLayer;
+}
+
+CCSprite* Console::getGrabber() {
+    return m_grabber;
+}
+
+void Console::setBlurPasses(unsigned int passes) {
+    BlurAPI::getOptions(this)->forcePasses = true;
+    BlurAPI::getOptions(this)->passes = passes;
+}
+
+void Console::showBlur(bool show) {
+    if (show) {
+        BlurAPI::addBlur(this);
+    }
+    else {
+        BlurAPI::removeBlur(this);
+    }
+}
+
+Dragger* Dragger::create(Console* console) {
+    auto ret = new Dragger();
+    if (ret->init(console)) {
+        ret->autorelease();
+        return ret;
+    }
+    delete ret;
+    return nullptr;
+}
+
+bool Dragger::init(Console* console) {
+    if (!CCNode::init()) return false;
+    m_console = console;
+    return true;
+}
+
+void Dragger::onEnter() {
+    CCNode::onEnter();
+    CCTouchDispatcher::get()->addTargetedDelegate(this, 10001 /*Scary*/, false);
+}
+
+void Dragger::onExit() {
+    CCNode::onExit();
+    CCTouchDispatcher::get()->removeDelegate(this);
+}
+
+bool Dragger::clickBegan(TouchEvent* touch) {
+    if (!nodeIsVisible(m_console)) return false;
+    if (touch->getButton() != MouseButton::LEFT) return false;
+    if (alpha::utils::isPointInsideNode(m_console->getGrabber(), touch->getLocation())) {
+        m_holdingGrabber = true;
+        m_startLocation = touch->getLocation();
+        m_consoleSize = m_console->getContentSize();
+        m_console->getGrabber()->setOpacity(175);
+        return true;
+    }
+    if (!alpha::utils::isPointInsideNode(m_console, touch->getLocation())) return false;
+
+    m_startLocation = touch->getLocation();
+    
+    scheduleOnce(schedule_selector(Dragger::waitForHold), 0.5f);
+
+    return true;
+}
+
+void Dragger::clickMoved(TouchEvent* touch) {
+    CCPoint prev = convertToNodeSpace(m_startLocation);
+    CCPoint curr = convertToNodeSpace(touch->getLocation());
+    CCPoint delta = curr - prev;
+
+    if (m_holdingGrabber) {
+        m_console->setContentSize(m_consoleSize + CCSize{delta.x, -delta.y});
+        return;
+    }
+
+    if (!m_holding) {
+        if (delta.getLength() > 10) {
+            unschedule(schedule_selector(Dragger::waitForHold));
+        }
+    }
+    else {
+        m_console->setPosition(m_consolePos + delta); 
+
+        Mod::get()->setSavedValue("console-x", m_console->getPositionX());
+        Mod::get()->setSavedValue("console-y", m_console->getPositionY());
+    }
+}
+
+void Dragger::clickEnded(TouchEvent* touch) {
+    if (m_holding) {
+        m_console->getBackground()->stopAllActions();
+        m_console->getBackground()->runAction(CCScaleTo::create(0.1f, 1.0f));
+        m_console->getBackground()->runAction(CCFadeTo::create(0.1f, 220));
+    }
+    m_holdingGrabber = false;
+    m_holding = false;
+    m_console->getGrabber()->setOpacity(100);
+    unschedule(schedule_selector(Dragger::waitForHold));
+}
+
+void Dragger::waitForHold(float dt) {
+    m_holding = true;
+    auto touch = new CCTouch();
+    m_console->getScrollLayer()->ccTouchCancelled(touch, nullptr);
+    touch->release();
+
+    m_console->getBackground()->runAction(CCScaleTo::create(0.1f, 1.05f));
+    m_console->getBackground()->runAction(CCFadeTo::create(0.1f, 190));
+
+    m_consolePos = m_console->getPosition();
 }

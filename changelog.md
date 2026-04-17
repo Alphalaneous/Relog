@@ -1,3 +1,10 @@
+# 1.1.0
+- 2.2081 Support
+- Complete redesign
+
+# 1.0.4
+- Switch to Broverlay
+
 # 1.0.3
 - Fix a crash
 - Optimizations.
