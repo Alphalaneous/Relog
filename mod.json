@@ -8,7 +8,7 @@
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.1.0",
+	"version": "v1.1.1",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
 	"dependencies": {
@@ -48,7 +48,7 @@
 		"font-size": {
 			"name": "Font Size",
 			"type": "float",
-			"min": 0.85,
+			"min": 0.75,
 			"max": 3,
 			"default":  {
 				"win": 1.0,
@@ -71,7 +71,12 @@
 			"type": "int",
 			"min": 100,
 			"max": 5000,
-			"default": 500
+			"default":  {
+				"win": 500,
+				"mac": 250,
+				"android": 100,
+				"ios": 100
+			}
 		},
 		"blur-title": {
 			"type": "title",

@@ -25,14 +25,14 @@ public:
 
     geode::NineSlice* getBackground();
     AdvancedScrollLayer* getScrollLayer();
-    CCSprite* getGrabber();
+    CCNodeRGBA* getGrabber();
 
 protected:
     bool init() override;
 
     geode::NineSlice* m_background;
     geode::NineSlice* m_border;
-    CCSprite* m_grabber;
+    CCNodeRGBA* m_grabber;
     AdvancedScrollLayer* m_scrollLayer;
 };
 

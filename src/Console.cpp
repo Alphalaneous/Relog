@@ -29,9 +29,17 @@ bool Console::init() {
     m_border->setOpacity(175);
     m_border->setZOrder(10);
 
-    m_grabber = CCSprite::create("grabber.png"_spr);
-    m_grabber->setAnchorPoint({0.f, 1.f});
-    m_grabber->setScale(0.5f);
+    m_grabber = CCNodeRGBA::create();
+    m_grabber->setCascadeOpacityEnabled(true);
+    m_grabber->setAnchorPoint({0.5f, 0.5f});
+
+    auto grabberSpr = CCSprite::create("grabber.png"_spr);
+    grabberSpr->setScale(0.5f);
+
+    m_grabber->addChild(grabberSpr);
+    m_grabber->setContentSize(grabberSpr->getScaledContentSize() * 1.5f);
+    grabberSpr->setPosition(m_grabber->getContentSize() / 2);
+
     m_grabber->setOpacity(100);
 
     m_background->addChild(m_grabber);
@@ -125,7 +133,7 @@ void Console::setContentSize(const CCSize& contentSize) {
     }
 
     if (m_grabber) {
-        m_grabber->setPosition({newSize.width - 5, 5});
+        m_grabber->setPosition({newSize.width, 0});
     }
 
     if (m_scrollLayer) {
@@ -137,16 +145,19 @@ void Console::setContentSize(const CCSize& contentSize) {
         }
 
         m_scrollLayer->getContentLayer()->setContentWidth(m_scrollLayer->getContentWidth());
-        m_scrollLayer->getContentLayer()->updateLayout();
+        runAction(CallFuncExt::create([this, isBottom] {
+            m_scrollLayer->getContentLayer()->updateLayout();
 
-        if (isBottom) {
-            m_scrollLayer->setScrollY(m_scrollLayer->getVerticalMax());
-        }
-        else {
-            // hacky cull fix, I should update aup to allow manual cull calls
-            m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y - 0.1f);
-            m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y + 0.1f);
-        }
+            if (isBottom) {
+                m_scrollLayer->setScrollY(m_scrollLayer->getVerticalMax());
+            }
+            else {
+                // hacky cull fix, I should update aup to allow manual cull calls
+                m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y - 0.1f);
+                m_scrollLayer->setScrollY(m_scrollLayer->getScrollPoint().y + 0.1f);
+            }
+        }));
+
     }
 }
 
@@ -169,7 +180,7 @@ AdvancedScrollLayer* Console::getScrollLayer() {
     return m_scrollLayer;
 }
 
-CCSprite* Console::getGrabber() {
+CCNodeRGBA* Console::getGrabber() {
     return m_grabber;
 }
 

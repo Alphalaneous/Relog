@@ -1,3 +1,7 @@
+# 1.1.1
+- Fix scroll layout not being updated
+- Increase resize grabber hitbox
+
 # 1.1.0
 - 2.2081 Support
 - Complete redesign
