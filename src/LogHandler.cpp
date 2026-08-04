@@ -1,5 +1,10 @@
 #include "LogHandler.hpp"
+#include "BlurAPI.hpp"
 #include "Utils.hpp"
+
+static bool IsUsingBlurAPI() {
+    return BlurAPI::isBlurAPIEnabled() || BlurAPI::willLoad();
+}
 
 LogData LogData::fromBorrowedLog(const log::BorrowedLog& log) {
     return {log.m_time, log.m_severity, log.m_nestCount, std::string(log.m_content), std::string(log.m_thread), std::string(log.m_source), log.m_mod};
@@ -27,6 +32,12 @@ void LogHandler::pushLog(const log::BorrowedLog& log) {
 
 void LogHandler::createConsole() {
     m_console = Console::create();
+    if (!m_console) {
+        Notification::create(
+            "Failed to create console!", 
+            NotificationIcon::Warning)->show();
+        return;
+    }
     
     for (auto& log : m_logs) {
         if (!log.m_cell) {
@@ -38,10 +49,17 @@ void LogHandler::createConsole() {
     m_console->setContentSize(relog::utils::getConsoleSize());
     m_console->setPosition(relog::utils::getConsolePosition());
 
-    auto passes = Mod::get()->getSettingValue<int>("blur-passes");
-    auto hasBlur = Mod::get()->getSettingValue<bool>("enable-blur");
+    if (IsUsingBlurAPI()) initBlur();
+}
 
+void LogHandler::initBlur() {
+    if (!m_console) return;
+    
+    auto hasBlur = Mod::get()->getSettingValue<bool>("enable-blur");
     m_console->showBlur(hasBlur);
+
+    if (!hasBlur) return;
+    auto passes = Mod::get()->getSettingValue<int>("blur-passes");
     m_console->setBlurPasses(passes);
 }
 
@@ -77,6 +95,14 @@ void LogHandler::toggleConsole() {
 
 bool LogHandler::isConsoleOpen() {
     return Mod::get()->getSavedValue<bool>("console-open");
+}
+
+void LogHandler::setTouchControls(bool enabled) {
+    m_console->setTouchControls(enabled);
+}
+
+void LogHandler::setScrollControls(bool enabled) {
+    m_console->setScrollControls(enabled);
 }
 
 void LogHandler::setBlurPasses(unsigned int passes) {

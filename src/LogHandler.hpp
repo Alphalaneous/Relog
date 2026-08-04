@@ -25,6 +25,7 @@ public:
     void pushLog(const log::BorrowedLog& log);
 
     void createConsole();
+    void initBlur();
     void destroyConsole();
 
     void hideConsole();
@@ -35,6 +36,8 @@ public:
     void clearCachedCells();
     bool isConsoleOpen();
 
+    void setTouchControls(bool enable);
+    void setScrollControls(bool enable);
     void setBlurPasses(unsigned int passes);
     void showBlur(bool show);
 

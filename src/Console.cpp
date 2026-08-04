@@ -16,6 +16,9 @@ Console* Console::create() {
 bool Console::init() {
     if (!CCNode::init()) return false;
 
+    m_touchControls = Mod::get()->getSettingValue<bool>("console-touch-controls");
+    m_scrollControls = Mod::get()->getSettingValue<bool>("console-scroll-controls");
+
     m_background = geode::NineSlice::create("square.png"_spr);
     m_background->setColor({0, 0, 0});
     m_background->setScaleMultiplier(0.5f);
@@ -52,6 +55,8 @@ bool Console::init() {
     m_scrollLayer->getContentLayer()->setLayout(layout);
     m_scrollLayer->setAnchorPoint({0, 0});
     m_scrollLayer->setPosition({4, 0.5f});
+    m_scrollLayer->setDraggingEnabled(m_touchControls);
+    m_scrollLayer->setVerticalScrollWheel(m_scrollControls);
 
     addChild(m_background);
     m_background->addChild(m_scrollLayer);
@@ -61,9 +66,11 @@ bool Console::init() {
 
     setContentSize({200, 100});
 
-    auto touchOverlay = Dragger::create(this);
-    touchOverlay->setZOrder(10000);
-    addChild(touchOverlay);
+    m_touchOverlay = Dragger::create(this);
+    m_touchOverlay->setZOrder(10000);
+    addChild(m_touchOverlay);
+
+    initCheckPressed(m_scrollControls);
 
     return true;
 }
@@ -90,6 +97,29 @@ void Console::addLog(LogCell* log) {
     }
 }
 
+void Console::checkKeyDown(float dt) {
+#ifdef GEODE_IS_DESKTOP
+    // TODO: Fix invalid press on focus/unfocus
+    auto* dispatcher = CCKeyboardDispatcher::get();
+    bool pressed = dispatcher->getControlKeyPressed();
+    if (pressed == m_keyDown) return;
+    // Update the state.
+    m_keyDown = pressed;
+    if (pressed) m_touchOverlay->instantHold();
+#endif
+}
+
+void Console::initCheckPressed(bool enable) {
+#ifdef GEODE_IS_DESKTOP
+    if (enable)
+        schedule(schedule_selector(Console::checkKeyDown), 0.05f);
+    else {
+        unschedule(schedule_selector(Console::checkKeyDown));
+        m_keyDown = false;
+    }
+#endif
+}
+
 void Console::onEnter() {
     CCNode::onEnter();
     CCTouchDispatcher::get()->addTargetedDelegate(this, 10000 /*Scary*/, true);
@@ -105,7 +135,7 @@ bool Console::clickBegan(TouchEvent* touch) {
     if (touch->getButton() != MouseButton::LEFT) return false;
     if (alpha::utils::isPointInsideNode(m_grabber, touch->getLocation())) return true;
     if (!alpha::utils::isPointInsideNode(this, touch->getLocation())) return false;
-
+    
     return true;
 }
 
@@ -184,9 +214,22 @@ CCNodeRGBA* Console::getGrabber() {
     return m_grabber;
 }
 
+void Console::setTouchControls(bool enable) {
+    m_touchControls = enable;
+    m_scrollLayer->setDraggingEnabled(enable);
+}
+
+void Console::setScrollControls(bool enable) {
+    m_scrollControls = enable;
+    m_scrollLayer->setVerticalScrollWheel(enable);
+    initCheckPressed(enable);
+}
+
 void Console::setBlurPasses(unsigned int passes) {
-    BlurAPI::getOptions(this)->forcePasses = true;
-    BlurAPI::getOptions(this)->passes = passes;
+    if (auto* options = BlurAPI::getOptions(this)) {
+        options->forcePasses = true;
+        options->passes = passes;
+    }
 }
 
 void Console::showBlur(bool show) {
@@ -236,9 +279,11 @@ bool Dragger::clickBegan(TouchEvent* touch) {
     }
     if (!alpha::utils::isPointInsideNode(m_console, touch->getLocation())) return false;
 
+    m_clicked = true;
     m_startLocation = touch->getLocation();
     
-    scheduleOnce(schedule_selector(Dragger::waitForHold), 0.5f);
+    float waitTime = m_console->isKeyDown() ? 0.f : 0.5f;
+    scheduleOnce(schedule_selector(Dragger::waitForHold), waitTime);
 
     return true;
 }
@@ -274,6 +319,7 @@ void Dragger::clickEnded(TouchEvent* touch) {
     }
     m_holdingGrabber = false;
     m_holding = false;
+    m_clicked = false;
     m_console->getGrabber()->setOpacity(100);
     unschedule(schedule_selector(Dragger::waitForHold));
 }
@@ -288,4 +334,11 @@ void Dragger::waitForHold(float dt) {
     m_console->getBackground()->runAction(CCFadeTo::create(0.1f, 190));
 
     m_consolePos = m_console->getPosition();
+}
+
+void Dragger::instantHold() {
+    if (!m_clicked || m_holding || m_holdingGrabber) return;
+    // Cancel the wait and instantly go into hold mode.
+    unschedule(schedule_selector(Dragger::waitForHold));
+    scheduleOnce(schedule_selector(Dragger::waitForHold), 0.f);
 }

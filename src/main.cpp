@@ -3,6 +3,8 @@
 
 using namespace geode::prelude;
 
+static constinit comm::ListenerHandle* GlobalListener = nullptr;
+
 void setupKeybindListener() {
     listenForKeybindSettingPresses("toggle-console-keybind", [] (Keybind const& keybind, bool down, bool repeat, double timestamp) {
         if (down) {
@@ -21,6 +23,16 @@ void setupSettingsListeners() {
         });
     });
 
+    listenForSettingChanges<bool>("console-touch-controls", [](bool enabled) {
+        LogHandler::get()->setTouchControls(enabled);
+    });
+
+#ifdef GEODE_IS_DESKTOP
+    listenForSettingChanges<bool>("console-scroll-controls", [](bool enabled) {
+        LogHandler::get()->setScrollControls(enabled);
+    });
+#endif
+
     listenForSettingChanges<int>("blur-passes", [](int value) {
         LogHandler::get()->setBlurPasses(value);
     });
@@ -35,7 +47,7 @@ void setupSettingsListeners() {
 }
 
 void setupLogListener() {
-    log::LogEvent().listen([] (log::BorrowedLog const& log) {
+    ::GlobalListener = log::LogEvent().listen([] (log::BorrowedLog const& log) {
         LogHandler::get()->pushLog(log);
     }).leak();
 }
@@ -44,14 +56,19 @@ $on_mod(Loaded) {
     setupKeybindListener();
     setupSettingsListeners();
     setupLogListener();
+    log::debug("Loaded relog");
 }
 
 $on_game(TexturesLoaded) {
     if (LogHandler::get()->isConsoleOpen()) {
         LogHandler::get()->showConsole();
     }
+    log::debug("Started relog");
 }
 
 $on_game(TexturesUnloaded) {
+    log::debug("Unloading relog");
+    if (auto* listener = ::GlobalListener)
+        listener->destroy();
     LogHandler::get()->destroyConsole();
 }
