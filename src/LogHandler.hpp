@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <Geode/Geode.hpp>
 #include "LogCell.hpp"
 #include "Console.hpp"
@@ -42,6 +43,6 @@ public:
     void showBlur(bool show);
 
 protected:
-    std::vector<LogData> m_logs;
+    std::deque<LogData> m_logs;
     Ref<Console> m_console;
 };
