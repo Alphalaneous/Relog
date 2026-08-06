@@ -417,7 +417,7 @@ static Result<std::string> ReadLogFileAsString(const std::filesystem::path& path
     }
     
     auto out = utils::file::readString(newPath);
-    std::filesystem::remove(path, ec);
+    std::filesystem::remove(newPath, ec);
     return out;
 }
 
