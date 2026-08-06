@@ -19,9 +19,8 @@ void LogHandler::pushLog(const log::BorrowedLog& log) {
     auto logData = LogData::fromBorrowedLog(log);
     queueInMainThread([this, logData = std::move(logData)] {
         m_logs.push_back(std::move(logData));
-        LogData* ptr = &m_logs.back();
-
         if (m_console) {
+            LogData* ptr = &m_logs.back();
             if (!ptr->m_cell) {
                 ptr->m_cell = LogCell::create(ptr);
             }
