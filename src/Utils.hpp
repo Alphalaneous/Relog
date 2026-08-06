@@ -61,11 +61,13 @@ inline ccColor3B severityToColor(geode::Severity severity) {
     return {255, 255, 255};
 }
 
+void refreshConsoleGlobal();
 
 inline Severity getConsoleLogLevel() {
     static auto setting = severityFromString(getGeode()->getSettingValue<std::string>("console-log-level"));
     static auto listener = listenForSettingChanges<std::string>("console-log-level", [](std::string value) {
         setting = severityFromString(value);
+        refreshConsoleGlobal();
     }, getGeode());
 
     return setting;

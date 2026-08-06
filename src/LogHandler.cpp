@@ -63,6 +63,15 @@ void LogHandler::createConsole() {
     if (IsUsingBlurAPI()) initBlur();
 }
 
+void LogHandler::refreshConsole() {
+    destroyConsole();
+    if (isConsoleOpen()) showConsole();
+}
+
+void relog::utils::refreshConsoleGlobal() {
+    queueInMainThread([] { LogHandler::get()->refreshConsole(); });
+}
+
 void LogHandler::initBlur() {
     if (!m_console) return;
     

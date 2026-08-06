@@ -1,11 +1,21 @@
 #include <Geode/Geode.hpp>
 #include "LogHandler.hpp"
+#include "Utils.hpp"
 
 using namespace geode::prelude;
 
 static constinit comm::ListenerHandle* GlobalListener = nullptr;
 
-void setupKeybindListener() {
+static void RefreshConsole() {
+    queueInMainThread([] {
+        LogHandler::get()->destroyConsole();
+        if (LogHandler::get()->isConsoleOpen()) {
+            LogHandler::get()->showConsole();
+        }
+    });
+}
+
+static void setupKeybindListener() {
     listenForKeybindSettingPresses("toggle-console-keybind", [] (Keybind const& keybind, bool down, bool repeat, double timestamp) {
         if (down) {
             LogHandler::get()->toggleConsole();
@@ -13,14 +23,9 @@ void setupKeybindListener() {
     });
 }
 
-void setupSettingsListeners() {
+static void setupSettingsListeners() {
     listenForSettingChanges<float>("font-size", [](float value) {
-        queueInMainThread([] {
-            LogHandler::get()->destroyConsole();
-            if (LogHandler::get()->isConsoleOpen()) {
-                LogHandler::get()->showConsole();
-            }
-        });
+        relog::utils::refreshConsoleGlobal();
     });
 
     listenForSettingChanges<bool>("console-touch-controls", [](bool enabled) {
@@ -46,7 +51,7 @@ void setupSettingsListeners() {
     }).leak();
 }
 
-void setupLogListener() {
+static void setupLogListener() {
     Result<> readRes = Ok();
     if (Mod::get()->getSettingValue<bool>("read-log-file"))
         readRes = LogHandler::get()->readLogFile();

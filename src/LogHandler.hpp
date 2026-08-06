@@ -27,6 +27,7 @@ public:
     Result<> readLogFile();
 
     void createConsole();
+    void refreshConsole();
     void initBlur();
     void destroyConsole();
 
