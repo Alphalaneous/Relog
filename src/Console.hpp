@@ -41,9 +41,6 @@ public:
 
 protected:
     bool init() override;
-    void initCheckPressed(bool enable);
-
-    void checkKeyDown(float dt);
 
     geode::NineSlice* m_background = nullptr;
     geode::NineSlice* m_border = nullptr;

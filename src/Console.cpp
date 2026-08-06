@@ -56,7 +56,7 @@ bool Console::init() {
     m_scrollLayer->setAnchorPoint({0, 0});
     m_scrollLayer->setPosition({4, 0.5f});
     m_scrollLayer->setDraggingEnabled(m_touchControls);
-    m_scrollLayer->setVerticalScrollWheel(m_scrollControls);
+    //m_scrollLayer->setVerticalScrollWheel(m_scrollControls);
 
     addChild(m_background);
     m_background->addChild(m_scrollLayer);
@@ -70,7 +70,35 @@ bool Console::init() {
     m_touchOverlay->setZOrder(10000);
     addChild(m_touchOverlay);
 
-    initCheckPressed(m_scrollControls);
+#ifdef GEODE_IS_DESKTOP
+    // For instant touch
+    addEventListener("relog-ctrl-listener",
+        KeyboardInputEvent(enumKeyCodes::KEY_LeftControl),
+    [this](KeyboardInputData& data) {
+        using Action = KeyboardInputData::Action;
+        if (!m_scrollControls)
+            return ListenerResult::Propagate;
+        if (data.action == Action::Press)
+            m_keyDown = true;
+        else if (data.action == Action::Release)
+            m_keyDown = false;
+        if (m_keyDown)
+            m_touchOverlay->instantHold();
+        return ListenerResult::Propagate;
+    }, Priority::VeryEarly);
+
+    // For scroll blocking
+    addEventListener("relog-scroll-listener", ScrollWheelEvent(),
+    [this] (double x, double y) {
+        if (!m_scrollControls)
+            return ListenerResult::Propagate;
+        CCPoint pos = getMousePos();
+        if (!alpha::utils::isPointInsideNode(this, getMousePos()))
+            return ListenerResult::Propagate;
+        m_scrollLayer->scroll(7.f * x, 12.f * -y);
+        return ListenerResult::Stop;
+    }, Priority::VeryEarly);
+#endif
 
     return true;
 }
@@ -95,29 +123,6 @@ void Console::addLog(LogCell* log) {
     if (isBottom) {
         m_scrollLayer->setScrollY(m_scrollLayer->getVerticalMax());
     }
-}
-
-void Console::checkKeyDown(float dt) {
-#ifdef GEODE_IS_DESKTOP
-    // TODO: Fix invalid press on focus/unfocus
-    auto* dispatcher = CCKeyboardDispatcher::get();
-    bool pressed = dispatcher->getControlKeyPressed();
-    if (pressed == m_keyDown) return;
-    // Update the state.
-    m_keyDown = pressed;
-    if (pressed) m_touchOverlay->instantHold();
-#endif
-}
-
-void Console::initCheckPressed(bool enable) {
-#ifdef GEODE_IS_DESKTOP
-    if (enable)
-        schedule(schedule_selector(Console::checkKeyDown), 0.05f);
-    else {
-        unschedule(schedule_selector(Console::checkKeyDown));
-        m_keyDown = false;
-    }
-#endif
 }
 
 void Console::onEnter() {
@@ -221,8 +226,8 @@ void Console::setTouchControls(bool enable) {
 
 void Console::setScrollControls(bool enable) {
     m_scrollControls = enable;
-    m_scrollLayer->setVerticalScrollWheel(enable);
-    initCheckPressed(enable);
+    //m_scrollLayer->setVerticalScrollWheel(enable);
+    //initCheckPressed(enable);
 }
 
 void Console::setBlurPasses(unsigned int passes) {
