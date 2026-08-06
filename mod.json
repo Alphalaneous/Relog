@@ -8,7 +8,7 @@
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.1.1",
+	"version": "v1.1.2",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
 	"dependencies": {
@@ -49,13 +49,15 @@
             "type": "bool",
             "name": "Toggle Touch Controls",
             "description": "If the console accepts touch input for dragging.",
-            "default": true
+            "default": true,
+            "platforms": ["desktop"]
         },
         "console-scroll-controls": {
             "type": "bool",
             "name": "Toggle Scroll Controls",
             "description": "If the console accepts scroll wheel input for movement and changing font size.",
-            "default": true
+            "default": true,
+            "platforms": ["desktop"]
         },
 		"font-size": {
 			"name": "Font Size",
@@ -90,6 +92,13 @@
 				"ios": 100
 			}
 		},
+        "read-log-file": {
+            "type": "bool",
+            "name": "Read Loader Logs From File",
+            "description": "If the loader logs should be read from their file.\n<c>This may increase loading times.</cr>",
+            "default": false,
+            "requires-restart": true
+        },
 		"blur-title": {
 			"type": "title",
 			"name": "Blur"

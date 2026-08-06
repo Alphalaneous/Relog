@@ -47,9 +47,18 @@ void setupSettingsListeners() {
 }
 
 void setupLogListener() {
+    Result<> readRes = Ok();
+    if (Mod::get()->getSettingValue<bool>("read-log-file"))
+        readRes = LogHandler::get()->readLogFile();
+    
     ::GlobalListener = log::LogEvent().listen([] (log::BorrowedLog const& log) {
         LogHandler::get()->pushLog(log);
     }).leak();
+
+    queueInMainThread([res = std::move(readRes)] {
+        if (res.isErr())
+            log::error("Failed to read log from file: {}", res.unwrapErr());
+    });
 }
 
 $on_mod(Loaded) {
@@ -68,6 +77,7 @@ $on_game(TexturesLoaded) {
 
 $on_game(TexturesUnloaded) {
     log::debug("Unloading relog");
+    // Without this the game randomly stalls for like 20 seconds
     if (auto* listener = ::GlobalListener)
         listener->destroy();
     LogHandler::get()->destroyConsole();

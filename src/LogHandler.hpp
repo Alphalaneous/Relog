@@ -24,6 +24,7 @@ class LogHandler {
 public:
     static LogHandler* get();
     void pushLog(const log::BorrowedLog& log);
+    Result<> readLogFile();
 
     void createConsole();
     void initBlur();
