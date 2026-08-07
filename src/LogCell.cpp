@@ -28,42 +28,40 @@ bool LogCell::init(LogData* logData) {
     }
 
     auto lines = utils::string::split(logData->m_content, "\n");
+    std::vector<CCLabelBMFont*> vec;
 
-    for (const auto& [idx, line] : asp::iter::from(lines).enumerate()) {
-        auto vec = std::vector<CCLabelBMFont*>();
-        auto parts = utils::string::split(line, " ");
+    /*Create the log label*/ {
+        auto ms = logData->m_time.timeSinceEpoch().millis() % 1000;
+        auto local = asp::localtime(logData->m_time.to_time_t());
 
-        if (idx == 0) {
-            auto ms = logData->m_time.timeSinceEpoch().millis() % 1000;
-            auto local = asp::localtime(logData->m_time.to_time_t());
+        std::string timeStr;
 
-            std::string timeStr;
+        if (relog::utils::shouldLogMillisconds()) {
+            timeStr = fmt::format("{:%H:%M:%S}.{:03}", local, ms);
+        }
+        else {
+            timeStr = fmt::format("{:%H:%M:%S}", local);
+        }
 
-            if (relog::utils::shouldLogMillisconds()) {
-                timeStr = fmt::format("{:%H:%M:%S}.{:03}", local, ms);
-            }
-            else {
-                timeStr = fmt::format("{:%H:%M:%S}", local);
-            }
+        auto color = relog::utils::severityToColor(logData->m_severity);
 
-            auto color = relog::utils::severityToColor(logData->m_severity);
+        auto timeLabel = CCLabelBMFont::create(timeStr.c_str(), "Consolas.fnt"_spr);
+        timeLabel->setAnchorPoint({0, 1});
+        timeLabel->setColor(color);
+        addChild(timeLabel);
 
-            auto timeLabel = CCLabelBMFont::create(timeStr.c_str(), "Consolas.fnt"_spr);
-            timeLabel->setAnchorPoint({0, 1});
-            timeLabel->setColor(color);
-            addChild(timeLabel);
+        vec.push_back(timeLabel);
 
-            vec.push_back(timeLabel);
+        auto severityStr = relog::utils::severityToLogString(logData->m_severity);
+        auto severityLabel = CCLabelBMFont::create(severityStr.c_str(), "Consolas.fnt"_spr);
 
-            auto severityStr = relog::utils::severityToLogString(logData->m_severity);
-            auto severityLabel = CCLabelBMFont::create(severityStr.c_str(), "Consolas.fnt"_spr);
+        severityLabel->setAnchorPoint({0, 1});
+        severityLabel->setColor(color);
+        addChild(severityLabel);
 
-            severityLabel->setAnchorPoint({0, 1});
-            severityLabel->setColor(color);
-            addChild(severityLabel);
+        vec.push_back(severityLabel);
 
-            vec.push_back(severityLabel);
-
+        if (!logData->m_thread.empty()) {
             auto threadStr = fmt::format("[{}]", logData->m_thread);
             auto threadLabel = CCLabelBMFont::create(threadStr.c_str(), "Consolas.fnt"_spr);
 
@@ -71,15 +69,27 @@ bool LogCell::init(LogData* logData) {
             addChild(threadLabel);
 
             vec.push_back(threadLabel);
-
-            auto modStr = fmt::format("[{}]", logData->m_mod->getName());
-            auto modLabel = CCLabelBMFont::create(modStr.c_str(), "Consolas.fnt"_spr);
-            
-            modLabel->setAnchorPoint({0, 1});
-            addChild(modLabel);
-
-            vec.push_back(modLabel);
         }
+
+        ZStringView modName = logData->m_mod
+            ? logData->m_mod->getName()
+            : ZStringView(logData->m_source);
+        auto modStr = fmt::format("[{}]", modName);
+        auto modLabel = CCLabelBMFont::create(modStr.c_str(), "Consolas.fnt"_spr);
+
+        modLabel->setAnchorPoint({0, 1});
+        addChild(modLabel);
+
+        vec.push_back(modLabel);
+    }
+
+    if (lines.empty()) {
+        m_labels.push_back(std::move(vec));
+        return true;
+    }
+
+    for (const auto& line : lines) {
+        auto parts = utils::string::split(line, " ");
 
         for (const auto& part : parts) {
             auto label = CCLabelBMFont::create(part.c_str(), "Consolas.fnt"_spr);
@@ -89,6 +99,7 @@ bool LogCell::init(LogData* logData) {
             vec.push_back(label);
         }
         m_labels.push_back(std::move(vec));
+        vec.clear();
     }
 
     return true;

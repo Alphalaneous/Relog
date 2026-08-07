@@ -8,6 +8,8 @@
 using namespace geode::prelude;
 using namespace alpha::prelude;
 
+class Dragger;
+
 class Console : public CCNode, public TouchDelegate {
 public:
     static Console* create();
@@ -20,6 +22,8 @@ public:
     void setPosition(const CCPoint& position) override;
 
     void addLog(LogCell* log);
+    void setTouchControls(bool enable);
+    void setScrollControls(bool enable);
     void setBlurPasses(unsigned int passes);
     void showBlur(bool show);
 
@@ -27,13 +31,25 @@ public:
     AdvancedScrollLayer* getScrollLayer();
     CCNodeRGBA* getGrabber();
 
+    inline bool isKeyDown() const {
+#ifdef GEODE_IS_DESKTOP
+        return m_keyDown;
+#else
+        return false;
+#endif
+    }
+
 protected:
     bool init() override;
 
-    geode::NineSlice* m_background;
-    geode::NineSlice* m_border;
-    CCNodeRGBA* m_grabber;
-    AdvancedScrollLayer* m_scrollLayer;
+    geode::NineSlice* m_background = nullptr;
+    geode::NineSlice* m_border = nullptr;
+    CCNodeRGBA* m_grabber = nullptr;
+    AdvancedScrollLayer* m_scrollLayer = nullptr;
+    Dragger* m_touchOverlay = nullptr;
+    bool m_touchControls = true;
+    bool m_scrollControls = false;
+    bool m_keyDown = false;
 };
 
 class Dragger : public CCNode, public TouchDelegate {
@@ -46,6 +62,7 @@ public:
     bool clickBegan(TouchEvent* touch) override;
 	void clickMoved(TouchEvent* touch) override;
 	void clickEnded(TouchEvent* touch) override;
+    void instantHold();
 protected:
     bool init(Console* console);
 
@@ -55,6 +72,7 @@ protected:
     CCPoint m_consolePos;
     CCSize m_consoleSize;
     Console* m_console;
-    bool m_holding;
-    bool m_holdingGrabber;
+    bool m_clicked = false;
+    bool m_holding = false;
+    bool m_holdingGrabber = false;
 };

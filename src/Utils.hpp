@@ -13,12 +13,20 @@ inline Mod* getGeode() {
 }
 
 inline geode::Severity severityFromString(std::string_view severity) {
-    if (severity == "trace") return geode::Severity::Trace;
-    if (severity == "debug") return geode::Severity::Debug;
-    if (severity == "info") return geode::Severity::Info;
-    if (severity == "warning") return geode::Severity::Warning;
-    if (severity == "error") return geode::Severity::Error;
-    return geode::Severity::Info;
+    if (severity.size() == 4) {
+        if (severity == "warn")
+            return Severity::Warning;
+        else if (severity == "info")
+            return Severity::Info;
+    } else if (severity.size() == 5) {
+        if (severity.starts_with("erro") && severity[4] == 'r')
+            return Severity::Error;
+        else if (severity.starts_with("trac") && severity[4] == 'e')
+            return Severity::Trace;
+        else if (severity.starts_with("debu") && severity[4] == 'g')
+            return Severity::Debug;
+    }
+    return Severity::Info;
 }
 
 inline std::string severityToLogString(geode::Severity severity) {
@@ -53,11 +61,13 @@ inline ccColor3B severityToColor(geode::Severity severity) {
     return {255, 255, 255};
 }
 
+void refreshConsoleGlobal();
 
 inline Severity getConsoleLogLevel() {
     static auto setting = severityFromString(getGeode()->getSettingValue<std::string>("console-log-level"));
     static auto listener = listenForSettingChanges<std::string>("console-log-level", [](std::string value) {
         setting = severityFromString(value);
+        refreshConsoleGlobal();
     }, getGeode());
 
     return setting;

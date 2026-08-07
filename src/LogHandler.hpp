@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <Geode/Geode.hpp>
 #include "LogCell.hpp"
 #include "Console.hpp"
@@ -23,8 +24,11 @@ class LogHandler {
 public:
     static LogHandler* get();
     void pushLog(const log::BorrowedLog& log);
+    Result<> readLogFile();
 
     void createConsole();
+    void refreshConsole();
+    void initBlur();
     void destroyConsole();
 
     void hideConsole();
@@ -35,10 +39,12 @@ public:
     void clearCachedCells();
     bool isConsoleOpen();
 
+    void setTouchControls(bool enable);
+    void setScrollControls(bool enable);
     void setBlurPasses(unsigned int passes);
     void showBlur(bool show);
 
 protected:
-    std::vector<LogData> m_logs;
+    std::deque<LogData> m_logs;
     Ref<Console> m_console;
 };
