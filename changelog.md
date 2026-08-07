@@ -1,3 +1,11 @@
+# 1.1.2
+- PR from @checkyourinbox
+  - Added the option to capture scrolling
+  - Added press control to instantly enable dragging
+  - Read logs from before the mod is loaded.
+
+Also fixed a few places where there was UB.
+
 # 1.1.1
 - Fix scroll layout not being updated
 - Increase resize grabber hitbox
