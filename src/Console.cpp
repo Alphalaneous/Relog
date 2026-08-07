@@ -55,6 +55,7 @@ bool Console::init() {
     m_scrollLayer->getContentLayer()->setLayout(layout);
     m_scrollLayer->setAnchorPoint({0, 0});
     m_scrollLayer->setPosition({4, 0.5f});
+    m_scrollLayer->setTouchPriority(-10001);
     m_scrollLayer->setDraggingEnabled(m_touchControls);
     //m_scrollLayer->setVerticalScrollWheel(m_scrollControls);
 
@@ -264,7 +265,7 @@ bool Dragger::init(Console* console) {
 
 void Dragger::onEnter() {
     CCNode::onEnter();
-    CCTouchDispatcher::get()->addTargetedDelegate(this, -10001 /*Scary*/, false);
+    CCTouchDispatcher::get()->addTargetedDelegate(this, -10002 /*Scary*/, false);
 }
 
 void Dragger::onExit() {

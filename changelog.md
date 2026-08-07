@@ -1,3 +1,6 @@
+# 1.1.4
+- Fix goofy touch prio x2
+
 # 1.1.3
 - Fix goofy touch prio
 
