@@ -8,7 +8,7 @@
 	},
 	"id": "alphalaneous.relog",
 	"name": "Relog",
-	"version": "v1.1.2",
+	"version": "v1.1.3",
 	"developer": "Alphalaneous",
 	"description": "Show console log in GD",
 	"dependencies": {

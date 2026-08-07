@@ -127,7 +127,7 @@ void Console::addLog(LogCell* log) {
 
 void Console::onEnter() {
     CCNode::onEnter();
-    CCTouchDispatcher::get()->addTargetedDelegate(this, 10000 /*Scary*/, true);
+    CCTouchDispatcher::get()->addTargetedDelegate(this, -10000 /*Scary*/, true);
 }
 
 void Console::onExit() {
@@ -264,7 +264,7 @@ bool Dragger::init(Console* console) {
 
 void Dragger::onEnter() {
     CCNode::onEnter();
-    CCTouchDispatcher::get()->addTargetedDelegate(this, 10001 /*Scary*/, false);
+    CCTouchDispatcher::get()->addTargetedDelegate(this, -10001 /*Scary*/, false);
 }
 
 void Dragger::onExit() {

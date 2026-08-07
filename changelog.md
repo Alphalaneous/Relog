@@ -1,3 +1,6 @@
+# 1.1.3
+- Fix goofy touch prio
+
 # 1.1.2
 - PR from @checkyourinbox
   - Added the option to capture scrolling
