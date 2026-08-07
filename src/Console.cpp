@@ -56,7 +56,9 @@ bool Console::init() {
     m_scrollLayer->setAnchorPoint({0, 0});
     m_scrollLayer->setPosition({4, 0.5f});
     m_scrollLayer->setTouchPriority(-10001);
+#ifdef GEODE_IS_DESKTOP
     m_scrollLayer->setDraggingEnabled(m_touchControls);
+#endif
     //m_scrollLayer->setVerticalScrollWheel(m_scrollControls);
 
     addChild(m_background);

@@ -1,3 +1,6 @@
+# 1.1.5
+- Fix goofy touch being always disabled on mobile on the scroll layer issue
+
 # 1.1.4
 - Fix goofy touch prio x2
 
